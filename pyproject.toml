@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "balance-fundraising"
+version = "0.1.0"
+description = "MVP agent for NKO fundraising platforms and applications."
+requires-python = ">=3.9"
+dependencies = [
+  "requests>=2.31.0",
+  "beautifulsoup4>=4.12.0"
+]
+
+[project.optional-dependencies]
+google = ["gspread>=6.0.0"]
+telegram = ["python-telegram-bot>=21.0"]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+balance-fundraising = "balance_fundraising.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

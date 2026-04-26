@@ -1,0 +1,55 @@
+[
+  {
+    "id": "harness-docs",
+    "priority": 1,
+    "description": "Repo-local agent harness with AGENTS.md, README, architecture, testing, quality, feature list, progress log, and active exec plan.",
+    "acceptance_steps": [
+      "AGENTS.md links to architecture, testing, quality, active exec plan, progress log, and feature list.",
+      "README mentions every public CLI command and required env var.",
+      "Feature list is valid JSON."
+    ],
+    "passes": true
+  },
+  {
+    "id": "yandex-llm-client",
+    "priority": 1,
+    "description": "Reusable Yandex LLM helper compatible with scripts/yandex_llm_example.py.",
+    "acceptance_steps": [
+      "Request body matches Yandex Foundation Models completion shape.",
+      "Completion text extraction supports Yandex alternatives payload."
+    ],
+    "passes": true
+  },
+  {
+    "id": "opportunity-analysis",
+    "priority": 1,
+    "description": "Analyze pages into structured opportunity JSON without guessing missing facts.",
+    "acceptance_steps": [
+      "Invalid LLM JSON is rejected.",
+      "Missing fields are filled with safe defaults.",
+      "VK Dobro-like and SberVmeste-like fixtures are parsed."
+    ],
+    "passes": true
+  },
+  {
+    "id": "workflow-services",
+    "priority": 1,
+    "description": "Local workflow supports add-link, analyze, checklist, draft, and digest.",
+    "acceptance_steps": [
+      "Local JSON integration flow works without external services.",
+      "Drafts use only FundWiki and mark missing facts.",
+      "Digest sorts overdue and urgent actions deterministically."
+    ],
+    "passes": true
+  },
+  {
+    "id": "telegram-handlers",
+    "priority": 2,
+    "description": "Telegram command handlers expose digest, add_link, checklist, draft, and status behavior.",
+    "acceptance_steps": [
+      "Handlers return text replies without sending external messages in tests.",
+      "Status updates go through the store and activity log."
+    ],
+    "passes": true
+  }
+]
