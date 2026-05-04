@@ -51,7 +51,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -108,6 +108,44 @@ def render_opportunity_list_page(opportunities: Iterable[Opportunity]) -> str:
         render_add_link_form(),
     ]
     return render_layout("Возможности", "\n".join(body))
+
+
+def render_radar_page(
+    *,
+    queries: Iterable[str],
+    activity: Iterable[ActivityLogEntry],
+    opportunities: Iterable[Opportunity],
+    yandex_configured: bool,
+) -> str:
+    query_options = "".join(f"<option value=\"{escape(query, quote=True)}\">{escape(query)}</option>" for query in queries)
+    warning = (
+        ""
+        if yandex_configured
+        else "<div class=\"callout\">Нужны Yandex-настройки для реального поиска: YANDEX_API_KEY и YANDEX_FOLDER_ID. Тесты и демо не вызывают внешний поиск.</div>"
+    )
+    runs = [item for item in activity if item.action in {"discover_run", "discover_error"}]
+    body = [
+        "<section>",
+        "<h2>Радар возможностей</h2>",
+        "<p class=\"muted\">Запускает кураторский поиск площадок и программ. Новые находки остаются в ручной проверке.</p>",
+        warning,
+        "<form method=\"post\" action=\"/radar/run\">",
+        f"<label>Кураторский запрос <select name=\"selected_query\"><option value=\"\">Все запросы</option>{query_options}</select></label>",
+        "<label>Свой запрос на один запуск <input name=\"custom_query\" placeholder=\"Например: грант для НКО психическое здоровье\"></label>",
+        "<label>Сколько результатов на запрос <input name=\"limit\" type=\"number\" min=\"1\" max=\"20\" value=\"5\"></label>",
+        "<button type=\"submit\">Запустить радар</button>",
+        "</form>",
+        "</section>",
+        "<section>",
+        "<h2>Последние запуски</h2>",
+        render_activity_log(runs[-10:], empty_text="Запусков радара пока не было."),
+        "</section>",
+        "<section>",
+        "<h2>Новые находки</h2>",
+        render_opportunity_table(opportunities, empty_text="Пока нет новых находок."),
+        "</section>",
+    ]
+    return render_layout("Радар", "\n".join(body))
 
 
 def render_review_queue_page(opportunities: Iterable[Opportunity]) -> str:

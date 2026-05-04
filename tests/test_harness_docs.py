@@ -13,6 +13,8 @@ class HarnessDocsTests(unittest.TestCase):
         for command in [
             "init-store",
             "discover",
+            "--query",
+            "--limit",
             "add-link",
             "analyze",
             "checklist",
@@ -131,6 +133,9 @@ class HarnessDocsTests(unittest.TestCase):
             "получили отказ",
             "заявку приняли",
             "готовим отчёт",
+            "Радар",
+            "discover --query",
+            "discover --limit",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

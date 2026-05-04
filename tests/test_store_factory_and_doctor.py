@@ -5,6 +5,7 @@ import io
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -142,6 +143,30 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("waiting_response", list_text)
         self.assertIn(application_id, show_text)
 
+    def test_cli_discover_accepts_query_and_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            fake_service = FakeDiscoveryService()
+            output = io.StringIO()
+            with patch("balance_fundraising.cli.YandexSearchClient", return_value=object()):
+                with patch("balance_fundraising.cli.DiscoveryService", return_value=fake_service):
+                    with contextlib.redirect_stdout(output):
+                        exit_code = cli_main(
+                            [
+                                "--store",
+                                str(store_path),
+                                "discover",
+                                "--query",
+                                "партнерство НКО банк",
+                                "--limit",
+                                "5",
+                            ]
+                        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(fake_service.queries, ["партнерство НКО банк"])
+        self.assertEqual(fake_service.limit_per_query, 5)
+        self.assertIn("created=2", output.getvalue())
+
 
 class FakeStore:
     def __init__(self) -> None:
@@ -149,6 +174,17 @@ class FakeStore:
 
     def init_store(self) -> None:
         self.initialized = True
+
+
+class FakeDiscoveryService:
+    def __init__(self) -> None:
+        self.queries = None
+        self.limit_per_query = None
+
+    def discover(self, queries=None, *, limit_per_query=10):
+        self.queries = queries
+        self.limit_per_query = limit_per_query
+        return SimpleNamespace(created_count=2, existing_count=1, status="completed", error="")
 
 
 if __name__ == "__main__":

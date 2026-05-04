@@ -5,10 +5,12 @@ import sys
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
+from balance_fundraising.clients.yandex_search import SearchResult
 from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
 from balance_fundraising.services.applications import (
     build_reporting_checklist,
@@ -21,6 +23,7 @@ from balance_fundraising.services.applications import (
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
+from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.readiness import build_readiness
 
@@ -210,6 +213,54 @@ class ServiceTests(unittest.TestCase):
             activity_id = store.list_activity()[0].id
             updated = update_feedback_status(store, activity_id, "converted_to_task")
         self.assertEqual(updated.status, "converted_to_task")
+
+    def test_discovery_deduplicates_and_writes_run_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            existing = Opportunity.from_url("https://example.org/existing")
+            existing.name = "Старая запись"
+            existing.status = "accepted"
+            store.upsert_opportunity(existing)
+            service = DiscoveryService(store, FakeSearchClient())
+            result = service.discover(["тестовый запрос"], limit_per_query=5)
+            opportunities = {item.url: item for item in store.list_opportunities()}
+            activity = store.list_activity()
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.existing_count, 1)
+        self.assertEqual(result.status, "completed")
+        self.assertIn("https://example.org/new", opportunities)
+        self.assertEqual(opportunities["https://example.org/existing"].status, "accepted")
+        self.assertEqual(opportunities["https://example.org/existing"].last_checked, date.today().isoformat())
+        self.assertTrue(any(item.action == "discover_run" and "created=1" in item.details for item in activity))
+
+    def test_discovery_failure_logs_sanitized_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            "os.environ",
+            {"YANDEX_API_KEY": "SECRET_KEY", "YANDEX_FOLDER_ID": "SECRET_FOLDER"},
+        ):
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            result = DiscoveryService(store, FailingSearchClient()).discover(["ошибка"], limit_per_query=5)
+            activity = store.list_activity()
+            details = "\n".join(item.details for item in activity)
+        self.assertEqual(result.status, "failed")
+        self.assertIn("discover_error", {item.action for item in activity})
+        self.assertNotIn("SECRET_KEY", details)
+        self.assertNotIn("SECRET_FOLDER", details)
+
+
+class FakeSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [
+            SearchResult(title="Новая площадка", url="https://example.org/new", snippet="НКО могут подать заявку"),
+            SearchResult(title="Старая площадка", url="https://example.org/existing", snippet="Обновленный фрагмент"),
+        ]
+
+
+class FailingSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        raise RuntimeError("Yandex failed with SECRET_KEY in SECRET_FOLDER")
 
 
 if __name__ == "__main__":

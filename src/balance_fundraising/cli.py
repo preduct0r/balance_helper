@@ -36,7 +36,9 @@ def main(argv: list[str] | None = None) -> int:
 
     subparsers.add_parser("init-store")
     subparsers.add_parser("digest")
-    subparsers.add_parser("discover")
+    discover = subparsers.add_parser("discover")
+    discover.add_argument("--query")
+    discover.add_argument("--limit", type=int, default=10)
     subparsers.add_parser("doctor")
     subparsers.add_parser("seed-demo")
     subparsers.add_parser("applications")
@@ -102,9 +104,14 @@ def main(argv: list[str] | None = None) -> int:
         print(opportunity.id)
         return 0
     if args.command == "discover":
-        service = DiscoveryService(store, YandexSearchClient())
-        discovered = service.discover()
-        print(f"Discovered {len(discovered)} opportunities")
+        try:
+            service = DiscoveryService(store, YandexSearchClient())
+            queries = [args.query] if args.query else None
+            result = service.discover(queries, limit_per_query=args.limit)
+        except RuntimeError as exc:
+            print(f"Discovery failed: {exc}")
+            return 1
+        print(f"Discovery {result.status}: created={result.created_count} existing={result.existing_count}")
         return 0
     if args.command == "seed-demo":
         created = seed_demo_store(store)

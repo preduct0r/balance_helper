@@ -133,6 +133,20 @@ Show urgent actions:
 PYTHONPATH=src python3 -m balance_fundraising.cli digest
 ```
 
+Run the opportunity radar with all curated queries:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli discover
+```
+
+Run the radar for one query and a smaller result count:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli discover --query "партнерство НКО банк" --limit 5
+```
+
+Use `discover --limit 5` with or without `--query` to keep early runs small.
+
 Show application pipeline records:
 
 ```bash
@@ -215,6 +229,7 @@ BALANCE_WEB_PORT=8080
 The first web UI is local-only. It shows:
 
 - dashboard with urgent actions and missing deadlines;
+- `Радар` for curated Yandex Search discovery;
 - opportunity list;
 - application list;
 - application detail page with response, reporting, history, and follow-up dates;
@@ -229,6 +244,17 @@ The first web UI is local-only. It shows:
 - local heuristic analysis from pasted text or the source URL.
 
 It does not send applications, emails, reports, or partner messages.
+
+### Радар: как искать новые площадки
+
+1. Open "Радар".
+2. Choose one curated query or leave "Все запросы".
+3. Optionally type a one-time custom query.
+4. Keep the limit at `5` for the first runs.
+5. Click "Запустить радар".
+6. Open new findings from "Новые находки" or "Проверка".
+
+Radar only creates reviewable opportunity cards with status `discovered`. It does not analyze pages with LLM, create applications, or send anything externally. If Yandex settings are missing, the page shows a friendly warning instead of crashing.
 
 ### Web scenario for a non-IT operator
 
@@ -396,6 +422,12 @@ Run Yandex Search discovery:
 
 ```bash
 PYTHONPATH=src python3 -m balance_fundraising.cli discover
+```
+
+Run one search query:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli discover --query "грант для НКО психическое здоровье" --limit 5
 ```
 
 Discovery uses the configured Yandex Search API and creates reviewable opportunity records. Newly discovered records are not treated as approved facts. A human must review them before external action.

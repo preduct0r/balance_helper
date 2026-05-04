@@ -4,6 +4,7 @@ import tempfile
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -17,8 +18,10 @@ from balance_fundraising.adapters.web import (
     render_dashboard,
     render_fund_wiki,
     render_opportunity_detail,
+    render_radar,
     render_review_queue,
 )
+from balance_fundraising.clients.yandex_search import SearchResult
 from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
 
 
@@ -182,6 +185,7 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/fund-wiki")[0], 200)
             self.assertEqual(app.render("/applications")[0], 200)
             self.assertEqual(app.render("/first-run")[0], 200)
+            self.assertEqual(app.render("/radar")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -321,6 +325,49 @@ class WebUiTests(unittest.TestCase):
         self.assertEqual(status, 303)
         self.assertEqual(location, "/first-run")
         self.assertEqual(updated.status, "reviewed")
+
+    def test_radar_renders_queries_runs_discovery_and_feeds_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store, search_client_factory=lambda: FakeRadarSearchClient())
+            with patch.dict("os.environ", {}, clear=True):
+                status, html = app.render("/radar")
+            post_status, location = app.post("/radar/run", {"query": "мой запрос", "limit": "5"})
+            radar_html = render_radar(store)
+            review_html = render_review_queue(store)
+            opportunities = store.list_opportunities()
+        self.assertEqual(status, 200)
+        self.assertIn("Радар", html)
+        self.assertIn("прием заявок НКО платформа", html)
+        self.assertIn("Нужны Yandex-настройки", html)
+        self.assertEqual(post_status, 303)
+        self.assertEqual(location, "/radar")
+        self.assertTrue(any(item.status == "discovered" for item in opportunities))
+        self.assertIn("Новая программа", radar_html)
+        self.assertIn("Новая программа", review_html)
+
+    def test_radar_failed_run_is_operator_friendly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store, search_client_factory=lambda: FailingRadarSearchClient())
+            status, location = app.post("/radar/run", {"query": "ошибка", "limit": "5"})
+            html = render_radar(store)
+        self.assertEqual(status, 303)
+        self.assertEqual(location, "/radar")
+        self.assertIn("failed", html)
+        self.assertNotIn("SECRET", html)
+
+
+class FakeRadarSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="Новая программа", url="https://radar.example/new", snippet="Прием заявок НКО")]
+
+
+class FailingRadarSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        raise RuntimeError("SECRET search failure")
 
 
 if __name__ == "__main__":

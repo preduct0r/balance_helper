@@ -28,6 +28,7 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - [x] Add FundWiki passport editing, readiness blockers, and local demo seed workflow.
 - [x] Add first-run validation screen and guided internal application pipeline.
 - [x] Add application follow-up, reporting, application detail, and feedback status workflow.
+- [x] Add web opportunity radar for curated manual discovery runs.
 
 ## Done Means
 
@@ -40,3 +41,4 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - `seed-demo` creates a local training dataset without external services.
 - Operators can create and update internal application records without any external sends.
 - Operators can track response, reporting, recheck, and first-run feedback statuses without external sends.
+- Operators can run curated discovery from the web UI and review findings before analysis.

@@ -11,14 +11,20 @@ if str(SRC) not in sys.path:
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
 from balance_fundraising.adapters.web import WebApp, add_opportunity, analyze_opportunity
+from balance_fundraising.clients.yandex_search import SearchResult
 from balance_fundraising.domain import FundWikiEntry
+
+
+class FakeRadarSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="Радарная находка", url="https://example.org/radar", snippet="НКО могут подать заявку")]
 
 
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         store = LocalJsonStore(Path(tmp) / "web-smoke-store.json")
         store.init_store()
-        app = WebApp(store)
+        app = WebApp(store, search_client_factory=lambda: FakeRadarSearchClient())
         opportunity = add_opportunity(store, "https://example.org/opportunity")
         analyze_opportunity(
             store,
@@ -53,7 +59,9 @@ def main() -> int:
         app.post("/first-run/feedback", {"feedback": "Не хватило понятной подсказки по отчетности."})
         feedback_id = [item for item in store.list_activity() if item.action == "operator_feedback"][0].id
         app.post(f"/feedback/{feedback_id}/status", {"status": "reviewed"})
+        app.post("/radar/run", {"query": "тестовый радар", "limit": "5"})
         root_status, root_html = app.render("/")
+        radar_status, radar_html = app.render("/radar")
         applications_status, applications_html = app.render("/applications")
         application_detail_status, application_detail_html = app.render(f"/applications/{application.id}")
         first_run_status, first_run_html = app.render("/first-run")
@@ -61,6 +69,7 @@ def main() -> int:
         wiki_status, wiki_html = app.render("/fund-wiki")
         detail_status, detail_html = app.render(f"/opportunities/{opportunity.id}")
     assert root_status == 200
+    assert radar_status == 200
     assert applications_status == 200
     assert application_detail_status == 200
     assert first_run_status == 200
@@ -68,6 +77,8 @@ def main() -> int:
     assert wiki_status == 200
     assert detail_status == 200
     assert "Рабочий стол фандрайзинга" in root_html
+    assert "Радар" in radar_html
+    assert "Радарная находка" in radar_html
     assert "Заявки" in applications_html
     assert "Карточка заявки" in application_detail_html
     assert "Приняли, нужно подготовить отчет" in application_detail_html

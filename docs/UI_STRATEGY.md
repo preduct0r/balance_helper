@@ -101,6 +101,8 @@ Phase 3 has started with the internal application pipeline: the UI now shows `/a
 
 Phase 3 now continues as a follow-up and reporting workspace: each application has its own detail page for response summary, reporting checklist, reporting state, dates, notes, and history. The first-run screen also shows saved operator observations so confusing UX moments can be reviewed and turned into tasks without leaving the local workspace.
 
+The next operator-facing layer is the "Радар" screen: curated discovery moves from CLI into the local web UI, but search results stay as unapproved findings. The operator starts search manually, reviews new cards, and decides whether to analyze them.
+
 ### UI Phase 3A: FundWiki And Readiness
 
 Make "Паспорт фонда" editable in the local web UI and show required reusable facts for applications: mission, audience, programs, start year, impact, legal details, reports, public links, and presentation. Opportunity cards should show "Готовность заявки" so the operator sees exactly what blocks human review.

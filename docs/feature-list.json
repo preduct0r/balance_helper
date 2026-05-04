@@ -160,5 +160,18 @@
       "README, docs/USAGE.md, docs/UI_STRATEGY.md, and smoke checks document the follow-up/reporting workflow."
     ],
     "passes": true
+  },
+  {
+    "id": "web-opportunity-radar",
+    "priority": 1,
+    "description": "Operator can run curated opportunity discovery from the local web UI and review new findings before any analysis or application work.",
+    "acceptance_steps": [
+      "Web UI exposes /radar with curated queries, one-time custom query, safe limit, latest runs, and discovered opportunities.",
+      "DiscoveryService deduplicates URLs and records created vs existing counts in ActivityLog.",
+      "Discovery failures are logged without Yandex secrets and shown as operator-friendly run history.",
+      "CLI discover supports --query and --limit while preserving default discovery behavior.",
+      "README, docs/USAGE.md, docs/UI_STRATEGY.md, and smoke checks document the radar workflow."
+    ],
+    "passes": true
   }
 ]

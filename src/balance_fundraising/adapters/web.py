@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
+from balance_fundraising.app_defaults import DEFAULT_DISCOVERY_QUERIES
 from balance_fundraising.adapters.web_templates import (
     render_application_detail_page,
     render_applications_page,
@@ -14,8 +16,10 @@ from balance_fundraising.adapters.web_templates import (
     render_not_found,
     render_opportunity_detail_page,
     render_opportunity_list_page,
+    render_radar_page,
     render_review_queue_page,
 )
+from balance_fundraising.clients.yandex_search import YandexSearchClient
 from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.applications import (
@@ -30,20 +34,24 @@ from balance_fundraising.services.applications import (
 )
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.digest import build_digest
+from balance_fundraising.services.discovery import DiscoveryService, sanitize_discovery_error
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key
 from balance_fundraising.services.readiness import build_readiness
 
 
 class WebApp:
-    def __init__(self, store) -> None:
+    def __init__(self, store, *, search_client_factory=None) -> None:
         self.store = store
+        self.search_client_factory = search_client_factory or YandexSearchClient
 
     def render(self, path: str) -> tuple[int, str]:
         parsed = urlparse(path)
         route = parsed.path
         if route == "/":
             return 200, render_dashboard(self.store)
+        if route == "/radar":
+            return 200, render_radar(self.store)
         if route == "/opportunities":
             return 200, render_opportunities(self.store.list_opportunities())
         if route == "/applications":
@@ -81,6 +89,9 @@ class WebApp:
         if route == "/first-run/feedback":
             add_operator_feedback(self.store, form.get("feedback", ""))
             return 303, "/first-run"
+        if route == "/radar/run":
+            run_radar(self.store, self.search_client_factory, form)
+            return 303, "/radar"
         feedback_action = _parse_feedback_action(route)
         if feedback_action is not None:
             activity_id, action_name = feedback_action
@@ -244,6 +255,34 @@ def render_dashboard(store) -> str:
         drafts_with_gaps=drafts_with_gaps,
         digest_text=build_digest(opportunities, applications=store.list_applications()),
     )
+
+
+def render_radar(store) -> str:
+    return render_radar_page(
+        queries=DEFAULT_DISCOVERY_QUERIES,
+        activity=store.list_activity(),
+        opportunities=[item for item in store.list_opportunities() if item.status == "discovered"],
+        yandex_configured=bool(os.getenv("YANDEX_API_KEY") and os.getenv("YANDEX_FOLDER_ID")),
+    )
+
+
+def run_radar(store, search_client_factory, form: Dict[str, str]) -> None:
+    query = (form.get("custom_query", "").strip() or form.get("selected_query", "").strip() or form.get("query", "").strip())
+    raw_limit = form.get("limit", "5").strip()
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 5
+    limit = max(1, min(limit, 20))
+    queries = [query] if query else None
+    try:
+        client = search_client_factory()
+    except Exception as exc:
+        error = sanitize_discovery_error(str(exc))
+        store.add_activity(ActivityLogEntry.today(action="discover_error", entity_id="radar", details=error))
+        store.add_activity(ActivityLogEntry.today(action="discover_run", entity_id="radar", details=f"failed: {error}"))
+        return
+    DiscoveryService(store, client).discover(queries, limit_per_query=limit)
 
 
 def render_opportunities(opportunities: Iterable[Opportunity]) -> str:
