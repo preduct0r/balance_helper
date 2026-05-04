@@ -20,6 +20,12 @@ from balance_fundraising.services.applications import (
     update_application_status,
     update_feedback_status,
 )
+from balance_fundraising.services.b2b import (
+    B2BDiscoveryService,
+    analyze_b2b_lead,
+    build_b2b_draft,
+    sanitize_b2b_error,
+)
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
@@ -280,6 +286,80 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("проверка просрочена", digest)
         self.assertIn("дедлайн 2026-05-01", digest)
 
+    def test_b2b_radar_creates_b2b_leads_and_deduplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            existing = FundraisingLead.from_values(
+                category="b2b",
+                name="Старая компания",
+                url="https://company.example/existing",
+            )
+            existing.status = "accepted"
+            store.upsert_lead(existing)
+            result = B2BDiscoveryService(store, FakeB2BSearchClient()).discover(["mental health hr"], limit_per_query=5)
+            leads = {item.url: item for item in store.list_leads()}
+            activity = store.list_activity()
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.existing_count, 1)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(leads["https://company.example/new"].category, "b2b")
+        self.assertEqual(leads["https://company.example/new"].status, "needs_review")
+        self.assertEqual(leads["https://company.example/existing"].status, "accepted")
+        self.assertTrue(any(item.action == "b2b_discover_run" and "created=1" in item.details for item in activity))
+
+    def test_b2b_radar_failure_logs_sanitized_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            "os.environ",
+            {"YANDEX_API_KEY": "SECRET_KEY", "YANDEX_FOLDER_ID": "SECRET_FOLDER"},
+        ):
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            result = B2BDiscoveryService(store, FailingB2BSearchClient()).discover(["ошибка"], limit_per_query=5)
+            activity = store.list_activity()
+            details = "\n".join(item.details for item in activity)
+        self.assertEqual(result.status, "failed")
+        self.assertIn("b2b_discover_error", {item.action for item in activity})
+        self.assertNotIn("SECRET_KEY", details)
+        self.assertNotIn("SECRET_FOLDER", details)
+        self.assertEqual(sanitize_b2b_error("SECRET failure"), "[скрыто] failure")
+
+    def test_b2b_analysis_fills_fit_risks_missing_info_and_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            lead = FundraisingLead.from_values(category="b2b", name="HR Tech", url="https://hr.example")
+            store.upsert_lead(lead)
+            analyzed = analyze_b2b_lead(
+                store,
+                lead.id,
+                text="Компания развивает HR wellbeing и корпоративное обучение. Есть форма обратной связи. Риски: репутация требует проверки.",
+            )
+        self.assertIn("HR wellbeing", analyzed.fit_for_fund)
+        self.assertIn("Проверить репутацию", analyzed.risk_flags)
+        self.assertIn("Уточнить ответственного за партнерства", analyzed.missing_info)
+        self.assertIn("форма обратной связи", analyzed.contact)
+        self.assertGreater(analyzed.confidence, 0.5)
+        self.assertTrue(analyzed.source_snippets)
+
+    def test_b2b_draft_uses_only_fund_wiki_and_lead_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            lead = FundraisingLead.from_values(category="b2b", name="HR Tech", url="https://hr.example")
+            lead.fit_for_fund = "HR wellbeing"
+            lead.source_snippets = ["Компания пишет про wellbeing"]
+            lead.notes = "Секретная заметка: нельзя использовать"
+            store.upsert_lead(lead)
+            draft = build_b2b_draft(lead, store.list_fund_wiki())
+        self.assertIn("Черновик первого письма", draft)
+        self.assertIn("One-pager", draft)
+        self.assertIn("Помогать людям с психическими расстройствами", draft)
+        self.assertIn("HR wellbeing", draft)
+        self.assertIn("Компания пишет про wellbeing", draft)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", draft)
+        self.assertNotIn("Секретная заметка", draft)
+
 
 class FakeSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
@@ -290,6 +370,19 @@ class FakeSearchClient:
 
 
 class FailingSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        raise RuntimeError("Yandex failed with SECRET_KEY in SECRET_FOLDER")
+
+
+class FakeB2BSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [
+            SearchResult(title="Новая компания", url="https://company.example/new", snippet="HR wellbeing для сотрудников"),
+            SearchResult(title="Старая компания", url="https://company.example/existing", snippet="Обновленный фрагмент"),
+        ]
+
+
+class FailingB2BSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
         raise RuntimeError("Yandex failed with SECRET_KEY in SECRET_FOLDER")
 

@@ -13,6 +13,8 @@ from balance_fundraising.adapters.web import (
     WebApp,
     add_opportunity,
     analyze_opportunity,
+    render_b2b,
+    render_b2b_detail,
     render_application_detail,
     render_applications,
     render_dashboard,
@@ -158,6 +160,35 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("ничего не отправляет", detail_html)
         self.assertIn("Компания заботы", review_html)
 
+    def test_b2b_workspace_runs_radar_and_renders_detail_draft(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store, search_client_factory=lambda: FakeRadarSearchClient(), b2b_search_client_factory=lambda: FakeB2BSearchClient())
+            with patch.dict("os.environ", {}, clear=True):
+                status, html = app.render("/b2b")
+            post_status, location = app.post("/b2b/radar/run", {"query": "hr wellbeing", "limit": "5"})
+            lead = store.list_leads()[0]
+            analyze_status, analyze_location = app.post(
+                f"/b2b/{lead.id}/analyze",
+                {"source_text": "Компания развивает HR wellbeing и корпоративное обучение. Есть форма обратной связи."},
+            )
+            b2b_html = render_b2b(store)
+            detail_html = render_b2b_detail(store, lead.id)
+            updated = store.get_lead(lead.id)
+        self.assertEqual(status, 200)
+        self.assertIn("B2B", html)
+        self.assertIn("Нужны Yandex-настройки", html)
+        self.assertEqual(post_status, 303)
+        self.assertEqual(location, "/b2b")
+        self.assertEqual(analyze_status, 303)
+        self.assertEqual(analyze_location, f"/b2b/{lead.id}")
+        self.assertEqual(updated.category, "b2b")
+        self.assertIn("B2B компания", b2b_html)
+        self.assertIn("Черновик первого письма", detail_html)
+        self.assertIn("One-pager", detail_html)
+        self.assertIn("ничего не отправляет", detail_html)
+
     def test_add_link_handler_creates_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = LocalJsonStore(Path(tmp) / "store.json")
@@ -224,6 +255,7 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/first-run")[0], 200)
             self.assertEqual(app.render("/radar")[0], 200)
             self.assertEqual(app.render("/leads")[0], 200)
+            self.assertEqual(app.render("/b2b")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -232,6 +264,7 @@ class WebUiTests(unittest.TestCase):
             lead_id = lead_location.rsplit("/", 1)[-1]
             self.assertEqual(lead_status, 303)
             self.assertEqual(app.render(f"/leads/{lead_id}")[0], 200)
+            self.assertEqual(app.render(f"/b2b/{lead_id}")[0], 200)
             app.post(f"/opportunities/{opportunity_id}/analyze", {"source_text": "НКО. Нужна отчетность."})
             detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
         self.assertEqual(detail_status, 200)
@@ -410,6 +443,11 @@ class FakeRadarSearchClient:
 class FailingRadarSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
         raise RuntimeError("SECRET search failure")
+
+
+class FakeB2BSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="B2B компания", url="https://b2b.example/company", snippet="HR wellbeing для сотрудников")]
 
 
 if __name__ == "__main__":

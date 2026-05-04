@@ -34,6 +34,9 @@ class HarnessDocsTests(unittest.TestCase):
             "lead-add",
             "lead-show",
             "lead-status",
+            "b2b-radar",
+            "b2b-analyze",
+            "b2b-draft",
         ]:
             self.assertIn(command, readme)
         for env in [
@@ -145,6 +148,10 @@ class HarnessDocsTests(unittest.TestCase):
             "Контакты и направления",
             "lead-add",
             "lead-status",
+            "B2B",
+            "b2b-radar",
+            "b2b-analyze",
+            "b2b-draft",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

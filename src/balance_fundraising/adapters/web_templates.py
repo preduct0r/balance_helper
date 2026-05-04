@@ -52,7 +52,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/b2b">B2B</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -121,6 +121,44 @@ def render_lead_list_page(leads: Iterable[FundraisingLead]) -> str:
         render_add_lead_form(),
     ]
     return render_layout("Контакты и направления", "\n".join(body))
+
+
+def render_b2b_page(
+    *,
+    queries: Iterable[str],
+    activity: Iterable[ActivityLogEntry],
+    leads: Iterable[FundraisingLead],
+    yandex_configured: bool,
+) -> str:
+    query_options = "".join(f"<option value=\"{escape(query, quote=True)}\">{escape(query)}</option>" for query in queries)
+    warning = (
+        ""
+        if yandex_configured
+        else "<div class=\"callout\">Нужны Yandex-настройки для реального B2B-поиска: YANDEX_API_KEY и YANDEX_FOLDER_ID. Тесты и демо не вызывают внешний поиск.</div>"
+    )
+    runs = [item for item in activity if item.action in {"b2b_discover_run", "b2b_discover_error"}]
+    body = [
+        "<section>",
+        "<h2>B2B партнёры</h2>",
+        "<p class=\"muted\">Поиск компаний и рабочих гипотез партнерства. Система только готовит материалы для ручной проверки.</p>",
+        warning,
+        "<form method=\"post\" action=\"/b2b/radar/run\">",
+        f"<label>Кураторский запрос <select name=\"selected_query\"><option value=\"\">Все запросы</option>{query_options}</select></label>",
+        "<label>Свой запрос на один запуск <input name=\"custom_query\" placeholder=\"Например: HR wellbeing НКО партнерство\"></label>",
+        "<label>Сколько результатов на запрос <input name=\"limit\" type=\"number\" min=\"1\" max=\"20\" value=\"5\"></label>",
+        "<button type=\"submit\">Запустить B2B-поиск</button>",
+        "</form>",
+        "</section>",
+        "<section>",
+        "<h2>Последние B2B-запуски</h2>",
+        render_activity_log(runs[-10:], empty_text="B2B-запусков пока не было."),
+        "</section>",
+        "<section>",
+        "<h2>B2B leads</h2>",
+        render_lead_table(leads, empty_text="Пока нет B2B-контактов."),
+        "</section>",
+    ]
+    return render_layout("B2B", "\n".join(body))
 
 
 def render_radar_page(
@@ -292,6 +330,38 @@ def render_lead_detail_page(lead: FundraisingLead, activity: Iterable[ActivityLo
         "</section>",
     ]
     return render_layout("Карточка контакта", "\n".join(body))
+
+
+def render_b2b_detail_page(lead: FundraisingLead, *, draft: str, activity: Iterable[ActivityLogEntry]) -> str:
+    body = [
+        "<section>",
+        "<h2>B2B карточка</h2>",
+        "<div class=\"callout\">Система ничего не отправляет наружу. Черновик ниже нужен только для ручной проверки.</div>",
+        f"<p>{status_badge(lead_status_label(lead.status))} {review_badge(lead.review_state)}</p>",
+        fact_row("Компания", lead.name),
+        fact_row("Организация", lead.organization),
+        fact_row_html("Источник", link(lead.url) if lead.url else "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Почему подходит", lead.fit_for_fund),
+        fact_row("Контакт", lead.contact or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Ответственный", lead.owner or "Не назначен"),
+        fact_row("Следующий шаг", lead.next_action),
+        fact_row("Уверенность", f"{lead.confidence:.2f}"),
+        "</section>",
+        render_lead_actions(lead),
+        "<section><h2>Риски</h2>" + render_list(lead.risk_flags, empty_text="Риски пока не отмечены.") + "</section>",
+        "<section><h2>Что неизвестно</h2>" + render_list(lead.missing_info, empty_text="Нет отмеченных пробелов.") + "</section>",
+        "<section><h2>Подтверждения</h2>" + render_evidence(lead.source_snippets) + "</section>",
+        render_b2b_analyze_form(lead.id),
+        "<section>",
+        "<h2>Черновик и one-pager</h2>",
+        f"<pre>{escape(draft)}</pre>",
+        "</section>",
+        "<section>",
+        "<h2>История</h2>",
+        render_activity_log(activity, empty_text="История B2B-контакта пока пуста."),
+        "</section>",
+    ]
+    return render_layout("B2B карточка", "\n".join(body))
 
 
 def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
@@ -676,6 +746,20 @@ def render_analyze_form(opportunity_id: str) -> str:
         f"<form method=\"post\" action=\"/opportunities/{escape(opportunity_id)}/analyze\">"
         "<label>Текст источника, если страницу нельзя открыть автоматически"
         "<textarea name=\"source_text\" rows=\"7\" placeholder=\"Можно оставить пустым, тогда сервис попробует открыть ссылку\"></textarea>"
+        "</label>"
+        "<button type=\"submit\">Разобрать</button>"
+        "</form>"
+        "</section>"
+    )
+
+
+def render_b2b_analyze_form(lead_id: str) -> str:
+    return (
+        "<section>"
+        "<h2>Разобрать B2B-источник</h2>"
+        f"<form method=\"post\" action=\"/b2b/{escape(lead_id)}/analyze\">"
+        "<label>Текст источника"
+        "<textarea name=\"source_text\" rows=\"7\" placeholder=\"Вставьте текст со страницы компании, описания CSR или контактов\"></textarea>"
         "</label>"
         "<button type=\"submit\">Разобрать</button>"
         "</form>"

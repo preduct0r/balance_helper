@@ -5,8 +5,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
-from balance_fundraising.app_defaults import DEFAULT_DISCOVERY_QUERIES
+from balance_fundraising.app_defaults import DEFAULT_B2B_QUERIES, DEFAULT_DISCOVERY_QUERIES
 from balance_fundraising.adapters.web_templates import (
+    render_b2b_detail_page,
+    render_b2b_page,
     render_application_detail_page,
     render_applications_page,
     render_dashboard_page,
@@ -23,6 +25,7 @@ from balance_fundraising.adapters.web_templates import (
 )
 from balance_fundraising.clients.yandex_search import YandexSearchClient
 from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
+from balance_fundraising.services.b2b import B2BDiscoveryService, analyze_b2b_lead, build_b2b_draft, sanitize_b2b_error
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.applications import (
     build_reporting_checklist,
@@ -44,9 +47,10 @@ from balance_fundraising.services.readiness import build_readiness
 
 
 class WebApp:
-    def __init__(self, store, *, search_client_factory=None) -> None:
+    def __init__(self, store, *, search_client_factory=None, b2b_search_client_factory=None) -> None:
         self.store = store
         self.search_client_factory = search_client_factory or YandexSearchClient
+        self.b2b_search_client_factory = b2b_search_client_factory or YandexSearchClient
 
     def render(self, path: str) -> tuple[int, str]:
         parsed = urlparse(path)
@@ -59,6 +63,13 @@ class WebApp:
             return 200, render_opportunities(self.store.list_opportunities())
         if route == "/applications":
             return 200, render_applications(self.store)
+        if route == "/b2b":
+            return 200, render_b2b(self.store)
+        if route.startswith("/b2b/"):
+            lead_id = unquote(route.removeprefix("/b2b/")).strip("/")
+            if "/" in lead_id or not lead_id:
+                return 404, render_not_found()
+            return 200, render_b2b_detail(self.store, lead_id)
         if route == "/leads":
             return 200, render_leads(self.store)
         if route.startswith("/leads/"):
@@ -102,6 +113,17 @@ class WebApp:
         if route == "/radar/run":
             run_radar(self.store, self.search_client_factory, form)
             return 303, "/radar"
+        if route == "/b2b/radar/run":
+            run_b2b_radar(self.store, self.b2b_search_client_factory, form)
+            return 303, "/b2b"
+        b2b_action = _parse_b2b_action(route)
+        if b2b_action is not None:
+            lead_id, action_name = b2b_action
+            if action_name == "analyze":
+                analyze_b2b_lead(self.store, lead_id, text=form.get("source_text", ""))
+            else:
+                return 404, render_not_found()
+            return 303, f"/b2b/{lead_id}"
         if route == "/leads":
             lead = create_lead(
                 self.store,
@@ -322,6 +344,34 @@ def run_radar(store, search_client_factory, form: Dict[str, str]) -> None:
     DiscoveryService(store, client).discover(queries, limit_per_query=limit)
 
 
+def render_b2b(store) -> str:
+    return render_b2b_page(
+        queries=DEFAULT_B2B_QUERIES,
+        activity=store.list_activity(),
+        leads=[item for item in store.list_leads() if item.category == "b2b"],
+        yandex_configured=bool(os.getenv("YANDEX_API_KEY") and os.getenv("YANDEX_FOLDER_ID")),
+    )
+
+
+def run_b2b_radar(store, search_client_factory, form: Dict[str, str]) -> None:
+    query = (form.get("custom_query", "").strip() or form.get("selected_query", "").strip() or form.get("query", "").strip())
+    raw_limit = form.get("limit", "5").strip()
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 5
+    limit = max(1, min(limit, 20))
+    queries = [query] if query else None
+    try:
+        client = search_client_factory()
+    except Exception as exc:
+        error = sanitize_b2b_error(str(exc))
+        store.add_activity(ActivityLogEntry.today(action="b2b_discover_error", entity_id="b2b", details=error))
+        store.add_activity(ActivityLogEntry.today(action="b2b_discover_run", entity_id="b2b", details=f"failed: {error}"))
+        return
+    B2BDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+
+
 def render_opportunities(opportunities: Iterable[Opportunity]) -> str:
     return render_opportunity_list_page(opportunities)
 
@@ -341,6 +391,15 @@ def render_lead_detail(store, lead_id: str) -> str:
         return render_not_found()
     activity = [item for item in store.list_activity() if item.entity_id == lead.id]
     return render_lead_detail_page(lead, activity)
+
+
+def render_b2b_detail(store, lead_id: str) -> str:
+    try:
+        lead = store.get_lead(lead_id)
+    except KeyError:
+        return render_not_found()
+    activity = [item for item in store.list_activity() if item.entity_id == lead.id]
+    return render_b2b_detail_page(lead, draft=build_b2b_draft(lead, store.list_fund_wiki()), activity=activity)
 
 
 def render_application_detail(store, application_id: str) -> str:
@@ -421,6 +480,16 @@ def _parse_opportunity_action(route: str) -> Optional[tuple[str, str]]:
 
 def _parse_lead_action(route: str) -> Optional[tuple[str, str]]:
     if not route.startswith("/leads/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) != 3:
+        return None
+    _, lead_id, action = parts
+    return unquote(lead_id), action
+
+
+def _parse_b2b_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/b2b/"):
         return None
     parts = [part for part in route.split("/") if part]
     if len(parts) != 3:

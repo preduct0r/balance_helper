@@ -60,6 +60,8 @@ UI для этого этапа сначала может оставаться s
 - Черновики писем, one-pager и презентаций под тип партнёра.
 - Пакеты предложений: корпоративные лекции, спонсирование расходов, оплаченные места на стажировке психологов, регулярные микропожертвования от малого бизнеса.
 
+Status: v1 implemented as a local-first B2B workspace. It creates `FundraisingLead(category="b2b")` records, runs deterministic fit/risk analysis, and generates human-reviewed first-contact and one-pager drafts without sending anything externally.
+
 ## Phase 5: Private Donor Agent
 
 Цель: развивать регулярные пожертвования через бережную коммуникацию.

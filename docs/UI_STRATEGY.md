@@ -105,6 +105,8 @@ The next operator-facing layer is the "Радар" screen: curated discovery mov
 
 The roadmap workspace now adds "Контакты и направления": a shared lead area for future B2B, paid services, events, bloggers, and donor campaigns. It should stay quiet and operational: internal status, owner, notes, source, risks, missing info, and next action, with no external contact from the system.
 
+The first specialized workspace on top of shared leads is "B2B": an operator can run curated company search, open a company card, paste source text for local fit/risk analysis, and copy a human-reviewed first-contact draft or one-pager. It keeps the same boundary as the rest of the product: no emails, CRM tasks, forms, or external messages are sent by the system.
+
 ### UI Phase 3A: FundWiki And Readiness
 
 Make "Паспорт фонда" editable in the local web UI and show required reusable facts for applications: mission, audience, programs, start year, impact, legal details, reports, public links, and presentation. Opportunity cards should show "Готовность заявки" so the operator sees exactly what blocks human review.

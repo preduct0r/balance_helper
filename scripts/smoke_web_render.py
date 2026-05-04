@@ -20,11 +20,16 @@ class FakeRadarSearchClient:
         return [SearchResult(title="Радарная находка", url="https://example.org/radar", snippet="НКО могут подать заявку")]
 
 
+class FakeB2BSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="B2B компания", url="https://example.org/b2b", snippet="HR wellbeing для сотрудников")]
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         store = LocalJsonStore(Path(tmp) / "web-smoke-store.json")
         store.init_store()
-        app = WebApp(store, search_client_factory=lambda: FakeRadarSearchClient())
+        app = WebApp(store, search_client_factory=lambda: FakeRadarSearchClient(), b2b_search_client_factory=lambda: FakeB2BSearchClient())
         opportunity = add_opportunity(store, "https://example.org/opportunity")
         analyze_opportunity(
             store,
@@ -74,8 +79,16 @@ def main() -> int:
         app.post(f"/leads/{lead.id}/owner", {"owner": "Оператор"})
         app.post(f"/leads/{lead.id}/status", {"status": "contact_planned", "review_state": "needs_review"})
         app.post(f"/leads/{lead.id}/note", {"notes": "Подготовить письмо вручную."})
+        app.post("/b2b/radar/run", {"query": "hr wellbeing", "limit": "5"})
+        b2b_lead = [item for item in store.list_leads() if item.url == "https://example.org/b2b"][0]
+        app.post(
+            f"/b2b/{b2b_lead.id}/analyze",
+            {"source_text": "Компания развивает HR wellbeing и корпоративное обучение. Есть форма обратной связи."},
+        )
         root_status, root_html = app.render("/")
         radar_status, radar_html = app.render("/radar")
+        b2b_status, b2b_html = app.render("/b2b")
+        b2b_detail_status, b2b_detail_html = app.render(f"/b2b/{b2b_lead.id}")
         leads_status, leads_html = app.render("/leads")
         lead_detail_status, lead_detail_html = app.render(f"/leads/{lead.id}")
         applications_status, applications_html = app.render("/applications")
@@ -86,6 +99,8 @@ def main() -> int:
         detail_status, detail_html = app.render(f"/opportunities/{opportunity.id}")
     assert root_status == 200
     assert radar_status == 200
+    assert b2b_status == 200
+    assert b2b_detail_status == 200
     assert leads_status == 200
     assert lead_detail_status == 200
     assert applications_status == 200
@@ -97,6 +112,9 @@ def main() -> int:
     assert "Рабочий стол фандрайзинга" in root_html
     assert "Радар" in radar_html
     assert "Радарная находка" in radar_html
+    assert "B2B" in b2b_html
+    assert "B2B компания" in b2b_detail_html
+    assert "Черновик первого письма" in b2b_detail_html
     assert "Контакты и направления" in leads_html
     assert "Компания заботы" in lead_detail_html
     assert "ничего не отправляет" in lead_detail_html

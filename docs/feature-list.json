@@ -196,7 +196,7 @@
       "B2B radar and drafts run with mocked external clients in tests.",
       "Drafts are human-review only and use approved FundWiki and lead evidence."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "paid-services-agent",

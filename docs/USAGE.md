@@ -207,6 +207,24 @@ Show one lead:
 PYTHONPATH=src python3 -m balance_fundraising.cli lead-show <lead_id>
 ```
 
+Run B2B radar for company leads:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli b2b-radar --query "HR wellbeing партнерство НКО" --limit 5
+```
+
+Analyze a B2B lead from pasted/source text:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli b2b-analyze <lead_id> --text-file /path/to/company.txt
+```
+
+Generate a human-reviewed B2B draft:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli b2b-draft <lead_id>
+```
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -254,6 +272,7 @@ The first web UI is local-only. It shows:
 
 - dashboard with urgent actions and missing deadlines;
 - `Радар` for curated Yandex Search discovery;
+- `B2B` for company search, fit review, risk checks, and first-contact drafts;
 - `Контакты и направления` for future B2B, paid services, events, bloggers, and donor campaign records;
 - opportunity list;
 - application list;
@@ -269,6 +288,18 @@ The first web UI is local-only. It shows:
 - local heuristic analysis from pasted text or the source URL.
 
 It does not send applications, emails, reports, or partner messages.
+
+### B2B: как искать компании и готовить первый контакт
+
+1. Open "B2B".
+2. Choose a curated query or type a one-time query.
+3. Keep the limit at `5` for early runs.
+4. Open a company lead and paste source text if the automatic snippet is not enough.
+5. Check fit, risk flags, missing info, source snippets, and public contact.
+6. Read "Черновик первого письма" and "One-pager" as preparation material only.
+7. Do not send the text until a human checks the company, facts, tone, and FundWiki references.
+
+CLI equivalents are `b2b-radar`, `b2b-analyze`, and `b2b-draft`. B2B v1 does not store private employee data and does not send emails, forms, Telegram messages, or CRM tasks.
 
 ### Контакты и направления
 

@@ -208,6 +208,47 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("contact_planned", list_text)
         self.assertIn("Компания заботы", show_text)
 
+    def test_cli_b2b_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            fake_service = FakeB2BDiscoveryService()
+            output = io.StringIO()
+            with patch("balance_fundraising.cli.YandexSearchClient", return_value=object()):
+                with patch("balance_fundraising.cli.B2BDiscoveryService", return_value=fake_service):
+                    with contextlib.redirect_stdout(output):
+                        radar_code = cli_main(
+                            [
+                                "--store",
+                                str(store_path),
+                                "b2b-radar",
+                                "--query",
+                                "hr wellbeing",
+                                "--limit",
+                                "5",
+                            ]
+                        )
+            self.assertEqual(radar_code, 0)
+            self.assertEqual(fake_service.queries, ["hr wellbeing"])
+            self.assertEqual(fake_service.limit_per_query, 5)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                add_code = cli_main(["--store", str(store_path), "lead-add", "--category", "b2b", "--name", "HR Tech"])
+            lead_id = output.getvalue().strip()
+            text_file = Path(tmp) / "b2b.txt"
+            text_file.write_text("Компания развивает HR wellbeing и корпоративное обучение. Есть форма обратной связи.", encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                analyze_code = cli_main(["--store", str(store_path), "b2b-analyze", lead_id, "--text-file", str(text_file)])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                draft_code = cli_main(["--store", str(store_path), "b2b-draft", lead_id])
+            draft_text = output.getvalue()
+        self.assertEqual(add_code, 0)
+        self.assertEqual(analyze_code, 0)
+        self.assertEqual(draft_code, 0)
+        self.assertIn("Черновик первого письма", draft_text)
+        self.assertIn("One-pager", draft_text)
+
 
 class FakeStore:
     def __init__(self) -> None:
@@ -226,6 +267,10 @@ class FakeDiscoveryService:
         self.queries = queries
         self.limit_per_query = limit_per_query
         return SimpleNamespace(created_count=2, existing_count=1, status="completed", error="")
+
+
+class FakeB2BDiscoveryService(FakeDiscoveryService):
+    pass
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ When starting a new roadmap session, read `AGENTS.md`, this plan, `docs/agent-pr
 ## Roadmap Features
 
 - [x] `shared-lead-workspace`: common lead model, store methods, CLI, web list/detail, digest, and review queue.
-- [ ] `b2b-partner-agent`: company leads, fit analysis, risk checks, and human-reviewed first-contact drafts.
+- [x] `b2b-partner-agent`: company leads, fit analysis, risk checks, and human-reviewed first-contact drafts.
 - [ ] `paid-services-agent`: reviewed offers for lectures, workshops, internships, and educational products.
 - [ ] `events-merch-agent`: event/market lead workflow with practical checklist and post-report notes.
 - [ ] `blogger-ambassador-agent`: creator leads with ethics/risk checklist and safe collaboration drafts.

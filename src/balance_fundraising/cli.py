@@ -11,6 +11,7 @@ from balance_fundraising.app_defaults import DEFAULT_STORE_PATH
 from balance_fundraising.clients.yandex_llm import YandexLLMClient
 from balance_fundraising.clients.yandex_search import YandexSearchClient
 from balance_fundraising.domain import ActivityLogEntry, Opportunity
+from balance_fundraising.services.b2b import B2BDiscoveryService, analyze_b2b_lead, build_b2b_draft
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.applications import (
     create_application_for_opportunity,
@@ -40,6 +41,9 @@ def main(argv: list[str] | None = None) -> int:
     discover = subparsers.add_parser("discover")
     discover.add_argument("--query")
     discover.add_argument("--limit", type=int, default=10)
+    b2b_radar = subparsers.add_parser("b2b-radar")
+    b2b_radar.add_argument("--query")
+    b2b_radar.add_argument("--limit", type=int, default=10)
     subparsers.add_parser("doctor")
     subparsers.add_parser("seed-demo")
     subparsers.add_parser("applications")
@@ -93,6 +97,13 @@ def main(argv: list[str] | None = None) -> int:
     lead_status.add_argument("lead_id")
     lead_status.add_argument("status")
 
+    b2b_analyze = subparsers.add_parser("b2b-analyze")
+    b2b_analyze.add_argument("lead_id")
+    b2b_analyze.add_argument("--text-file")
+
+    b2b_draft = subparsers.add_parser("b2b-draft")
+    b2b_draft.add_argument("lead_id")
+
     subparsers.add_parser("bot")
 
     web = subparsers.add_parser("web")
@@ -128,6 +139,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Discovery failed: {exc}")
             return 1
         print(f"Discovery {result.status}: created={result.created_count} existing={result.existing_count}")
+        return 0
+    if args.command == "b2b-radar":
+        try:
+            service = B2BDiscoveryService(store, YandexSearchClient())
+            queries = [args.query] if args.query else None
+            result = service.discover(queries, limit_per_query=args.limit)
+        except RuntimeError as exc:
+            print(f"B2B discovery failed: {exc}")
+            return 1
+        print(f"B2B discovery {result.status}: created={result.created_count} existing={result.existing_count}")
         return 0
     if args.command == "seed-demo":
         created = seed_demo_store(store)
@@ -193,6 +214,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"owner: {lead.owner or 'Не назначен'}")
         print(f"next_action: {lead.next_action}")
         print(f"recheck_at: {lead.recheck_at or '[НУЖНО УТОЧНИТЬ]'}")
+        return 0
+    if args.command == "b2b-analyze":
+        text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else ""
+        lead = analyze_b2b_lead(store, args.lead_id, text=text)
+        print(f"Analyzed B2B {lead.id}: {lead.fit_for_fund}")
+        return 0
+    if args.command == "b2b-draft":
+        print(build_b2b_draft(store.get_lead(args.lead_id), store.list_fund_wiki()))
         return 0
     if args.command == "analyze":
         text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else None
