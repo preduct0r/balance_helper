@@ -12,6 +12,8 @@ from balance_fundraising.adapters.web_templates import (
     render_dashboard_page,
     render_first_run_page,
     render_fund_wiki_page,
+    render_lead_detail_page,
+    render_lead_list_page,
     render_message,
     render_not_found,
     render_opportunity_detail_page,
@@ -37,6 +39,7 @@ from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService, sanitize_discovery_error
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key
+from balance_fundraising.services.leads import create_lead, update_lead_note, update_lead_owner, update_lead_status
 from balance_fundraising.services.readiness import build_readiness
 
 
@@ -56,6 +59,13 @@ class WebApp:
             return 200, render_opportunities(self.store.list_opportunities())
         if route == "/applications":
             return 200, render_applications(self.store)
+        if route == "/leads":
+            return 200, render_leads(self.store)
+        if route.startswith("/leads/"):
+            lead_id = unquote(route.removeprefix("/leads/")).strip("/")
+            if "/" in lead_id or not lead_id:
+                return 404, render_not_found()
+            return 200, render_lead_detail(self.store, lead_id)
         if route.startswith("/applications/"):
             application_id = unquote(route.removeprefix("/applications/")).strip("/")
             if "/" in application_id or not application_id:
@@ -92,6 +102,33 @@ class WebApp:
         if route == "/radar/run":
             run_radar(self.store, self.search_client_factory, form)
             return 303, "/radar"
+        if route == "/leads":
+            lead = create_lead(
+                self.store,
+                category=form.get("category", "b2b"),
+                name=form.get("name", ""),
+                organization=form.get("organization", ""),
+                url=form.get("url", ""),
+                description=form.get("description", ""),
+            )
+            return 303, f"/leads/{lead.id}"
+        lead_action = _parse_lead_action(route)
+        if lead_action is not None:
+            lead_id, action_name = lead_action
+            if action_name == "status":
+                update_lead_status(
+                    self.store,
+                    lead_id,
+                    status=form.get("status", "needs_review"),
+                    review_state=form.get("review_state", "needs_review"),
+                )
+            elif action_name == "owner":
+                update_lead_owner(self.store, lead_id, form.get("owner", ""))
+            elif action_name == "note":
+                update_lead_note(self.store, lead_id, form.get("notes", ""))
+            else:
+                return 404, render_not_found()
+            return 303, f"/leads/{lead_id}"
         feedback_action = _parse_feedback_action(route)
         if feedback_action is not None:
             activity_id, action_name = feedback_action
@@ -253,7 +290,7 @@ def render_dashboard(store) -> str:
         needs_review=needs_review,
         missing_deadlines=missing_deadlines,
         drafts_with_gaps=drafts_with_gaps,
-        digest_text=build_digest(opportunities, applications=store.list_applications()),
+        digest_text=build_digest(opportunities, applications=store.list_applications(), leads=store.list_leads()),
     )
 
 
@@ -293,6 +330,19 @@ def render_applications(store) -> str:
     return render_applications_page(store.list_applications(), store.list_opportunities())
 
 
+def render_leads(store) -> str:
+    return render_lead_list_page(store.list_leads())
+
+
+def render_lead_detail(store, lead_id: str) -> str:
+    try:
+        lead = store.get_lead(lead_id)
+    except KeyError:
+        return render_not_found()
+    activity = [item for item in store.list_activity() if item.entity_id == lead.id]
+    return render_lead_detail_page(lead, activity)
+
+
 def render_application_detail(store, application_id: str) -> str:
     try:
         application = store.get_application(application_id)
@@ -310,7 +360,8 @@ def render_application_detail(store, application_id: str) -> str:
 
 def render_review_queue(store) -> str:
     opportunities = review_queue_items(store.list_opportunities())
-    return render_review_queue_page(opportunities)
+    leads = lead_review_queue_items(store.list_leads())
+    return render_review_queue_page(opportunities, leads)
 
 
 def render_fund_wiki(store) -> str:
@@ -350,6 +401,14 @@ def review_queue_items(opportunities: Iterable[Opportunity]) -> List[Opportunity
     ]
 
 
+def lead_review_queue_items(leads) -> List[object]:
+    return [
+        item
+        for item in leads
+        if item.review_state != "reviewed" or item.status in {"needs_review"} or bool(item.missing_info) or bool(item.risk_flags)
+    ]
+
+
 def _parse_opportunity_action(route: str) -> Optional[tuple[str, str]]:
     if not route.startswith("/opportunities/"):
         return None
@@ -358,6 +417,16 @@ def _parse_opportunity_action(route: str) -> Optional[tuple[str, str]]:
         return None
     _, opportunity_id, action = parts
     return unquote(opportunity_id), action
+
+
+def _parse_lead_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/leads/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) != 3:
+        return None
+    _, lead_id, action = parts
+    return unquote(lead_id), action
 
 
 def _parse_application_action(route: str) -> Optional[tuple[str, str]]:

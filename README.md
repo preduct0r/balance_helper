@@ -12,7 +12,7 @@ MVP agent for the charity fund "Равновесие". The system helps a fundra
 
 ## System Roadmap
 
-The MVP is the first slice of a broader fundraising operating system for the fund. The full roadmap is kept in `docs/ROADMAP.md`; it covers the opportunity radar, fund passport, application/reporting agent, B2B agent, private donor agent, blogger agent, events and merch, and paid services.
+The MVP is the first slice of a broader fundraising operating system for the fund. The full roadmap is kept in `docs/ROADMAP.md`; it covers the opportunity radar, fund passport, application/reporting agent, Shared Lead Workspace, B2B agent, private donor agent, blogger agent, events and merch, and paid services.
 
 The primary operator may be far from IT, so UI evolution is tracked separately in `docs/UI_STRATEGY.md`. The intended interface is a calm fundraising workspace with dashboards, review queues, opportunity cards, checklists, and editable drafts, not a technical control panel.
 
@@ -71,6 +71,10 @@ PYTHONPATH=src python -m balance_fundraising.cli application-status <application
 PYTHONPATH=src python -m balance_fundraising.cli application-show <application_id>
 PYTHONPATH=src python -m balance_fundraising.cli application-dates <application_id> --response-due 2026-05-20 --reporting-due 2026-06-20 --recheck 2026-05-30
 PYTHONPATH=src python -m balance_fundraising.cli application-note <application_id> "Ответ ждём в кабинете платформы"
+PYTHONPATH=src python -m balance_fundraising.cli leads
+PYTHONPATH=src python -m balance_fundraising.cli lead-add --category b2b --name "Компания заботы" --url https://company.example
+PYTHONPATH=src python -m balance_fundraising.cli lead-status <lead_id> contact_planned
+PYTHONPATH=src python -m balance_fundraising.cli lead-show <lead_id>
 PYTHONPATH=src python -m balance_fundraising.cli bot
 PYTHONPATH=src python -m balance_fundraising.cli seed-demo
 PYTHONPATH=src python -m balance_fundraising.cli web
@@ -99,7 +103,7 @@ Run:
 PYTHONPATH=src python -m balance_fundraising.cli web
 ```
 
-Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, radar, review queue, opportunity list, application list and detail pages, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In the opportunity and application cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
+Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, radar, review queue, opportunity list, application list and detail pages, `Контакты и направления`, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In the opportunity, application, and lead cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
 
 Use `seed-demo` in local mode to create a training dataset for a non-IT operator. It adds demo opportunities and one starter application record; it does not call Yandex, Google, Telegram, or partner services.
 
@@ -109,4 +113,4 @@ All opportunities are created as reviewable records. Drafts may contain `[НУЖ
 
 ## Development Harness
 
-Read `AGENTS.md` before coding. Use `docs/ROADMAP.md` for long-term direction, `docs/UI_STRATEGY.md` for user-facing interface direction, `docs/feature-list.json` for acceptance criteria, and `docs/agent-progress.md` for continuity between sessions.
+Read `AGENTS.md` before coding. Use `docs/ROADMAP.md` for long-term direction, `docs/exec-plans/active/global-roadmap-autonomous-development.md` for the autonomous roadmap sequence, `docs/UI_STRATEGY.md` for user-facing interface direction, `docs/feature-list.json` for acceptance criteria, and `docs/agent-progress.md` for continuity between sessions.

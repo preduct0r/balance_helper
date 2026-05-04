@@ -14,6 +14,7 @@ PYTHONPATH=src python scripts/dev_check.py
 - Unit tests cover pure parsing, request body construction, checklist generation, drafts, and digest ordering.
 - Integration-style tests use `LocalJsonStore` only.
 - External Yandex, Google, Telegram, and page-fetch calls are mocked or replaced with fixtures.
+- Roadmap features are developed local/demo/mock-first until final real-world validation.
 - Fixtures live in `tests/fixtures`.
 
 ## Acceptance
@@ -23,4 +24,3 @@ PYTHONPATH=src python scripts/dev_check.py
 - Drafts use only `FundWiki`.
 - Digest output is deterministic when a fixed date is passed.
 - Harness docs remain internally linked and feature JSON remains valid.
-

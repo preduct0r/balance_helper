@@ -20,6 +20,7 @@ Domain code has no external dependencies. Services depend on domain models and i
 
 - `Opportunities`
 - `Applications`
+- `Leads`
 - `FundWiki`
 - `Documents`
 - `ActivityLog`
@@ -28,6 +29,7 @@ Domain code has no external dependencies. Services depend on domain models and i
 
 Future modules should reuse the same domain/store/client boundaries:
 
+- shared lead workspace for B2B, paid services, events, bloggers, and donor campaigns
 - B2B partnerships
 - private donor communication
 - blogger and ambassador collaboration
@@ -35,4 +37,3 @@ Future modules should reuse the same domain/store/client boundaries:
 - paid services and educational products
 
 Do not add future-agent code until the feature is requested. Keep extension points small and explicit.
-

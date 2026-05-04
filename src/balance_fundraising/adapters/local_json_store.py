@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
 
-TABLES = ["Opportunities", "Applications", "FundWiki", "Documents", "ActivityLog"]
+TABLES = ["Opportunities", "Applications", "Leads", "FundWiki", "Documents", "ActivityLog"]
 
 DEFAULT_FUND_WIKI = [
     FundWikiEntry(
@@ -115,6 +115,37 @@ class LocalJsonStore:
             setattr(application, key, value)
         self.upsert_application(application)
         return application
+
+    def upsert_lead(self, lead: FundraisingLead) -> None:
+        data = self._read_initialized()
+        rows = data["Leads"]
+        payload = lead.to_dict()
+        for index, row in enumerate(rows):
+            if row["id"] == lead.id:
+                rows[index] = payload
+                break
+        else:
+            rows.append(payload)
+        self._write(data)
+
+    def get_lead(self, lead_id: str) -> FundraisingLead:
+        for lead in self.list_leads():
+            if lead.id == lead_id:
+                return lead
+        raise KeyError(f"Lead not found: {lead_id}")
+
+    def list_leads(self) -> List[FundraisingLead]:
+        data = self._read_initialized()
+        return [FundraisingLead.from_dict(row) for row in data["Leads"]]
+
+    def update_lead_fields(self, lead_id: str, fields: Dict[str, object]) -> FundraisingLead:
+        lead = self.get_lead(lead_id)
+        for key, value in fields.items():
+            if key not in FundraisingLead.__dataclass_fields__:
+                raise KeyError(f"Unknown lead field: {key}")
+            setattr(lead, key, value)
+        self.upsert_lead(lead)
+        return lead
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         data = self._read_initialized()

@@ -5,7 +5,7 @@ from html import escape
 from typing import Iterable, List
 
 from balance_fundraising.adapters.web_static import WEB_CSS
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
 from balance_fundraising.services.applications import (
     APPLICATION_STATUS_LABELS,
     REPORTING_STATE_LABELS,
@@ -13,6 +13,7 @@ from balance_fundraising.services.applications import (
     reporting_state_label,
 )
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key, fund_wiki_label
+from balance_fundraising.services.leads import LEAD_CATEGORIES, LEAD_STATUSES, lead_category_label, lead_status_label
 from balance_fundraising.services.readiness import ReadinessReport
 
 STATUS_LABELS = {
@@ -51,7 +52,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -110,6 +111,18 @@ def render_opportunity_list_page(opportunities: Iterable[Opportunity]) -> str:
     return render_layout("Возможности", "\n".join(body))
 
 
+def render_lead_list_page(leads: Iterable[FundraisingLead]) -> str:
+    body = [
+        "<section>",
+        "<h2>Контакты и направления</h2>",
+        "<p class=\"muted\">Общее рабочее место для будущих направлений: бизнес, платные услуги, мероприятия, блогеры и донорские кампании.</p>",
+        render_lead_table(leads, empty_text="Пока нет контактов и направлений."),
+        "</section>",
+        render_add_lead_form(),
+    ]
+    return render_layout("Контакты и направления", "\n".join(body))
+
+
 def render_radar_page(
     *,
     queries: Iterable[str],
@@ -148,12 +161,14 @@ def render_radar_page(
     return render_layout("Радар", "\n".join(body))
 
 
-def render_review_queue_page(opportunities: Iterable[Opportunity]) -> str:
+def render_review_queue_page(opportunities: Iterable[Opportunity], leads: Iterable[FundraisingLead] = ()) -> str:
     body = [
         "<section>",
         "<h2>Очередь проверки</h2>",
         "<p class=\"muted\">Здесь собраны новые находки, результаты разбора и черновики, которые нельзя использовать вовне без человека.</p>",
         render_opportunity_table(opportunities, empty_text="Пока нечего проверять."),
+        "<h3>Контакты и направления</h3>",
+        render_lead_table(leads, empty_text="Пока нет контактов на проверке."),
         "</section>",
     ]
     return render_layout("Проверка", "\n".join(body))
@@ -245,6 +260,38 @@ def render_application_detail_page(
         "</section>",
     ]
     return render_layout("Карточка заявки", "\n".join(body))
+
+
+def render_lead_detail_page(lead: FundraisingLead, activity: Iterable[ActivityLogEntry]) -> str:
+    body = [
+        "<section>",
+        "<h2>Карточка контакта</h2>",
+        "<div class=\"callout\">Система ничего не отправляет наружу. Здесь только подготовка, проверка и история ручной работы.</div>",
+        f"<p>{status_badge(lead_status_label(lead.status))} {review_badge(lead.review_state)}</p>",
+        fact_row("Направление", lead_category_label(lead.category)),
+        fact_row("Название", lead.name),
+        fact_row("Организация", lead.organization),
+        fact_row_html("Источник", link(lead.url) if lead.url else "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Описание", lead.description or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Контакт", lead.contact or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Почему подходит", lead.fit_for_fund),
+        fact_row("Ответственный", lead.owner or "Не назначен"),
+        fact_row("Следующее действие", lead.next_action),
+        fact_row("Дедлайн", lead.deadline or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Проверить позже", lead.recheck_at or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Уверенность", f"{lead.confidence:.2f}"),
+        fact_row("Заметка", lead.notes or "Нет заметки"),
+        "</section>",
+        render_lead_actions(lead),
+        "<section><h2>Риски</h2>" + render_list(lead.risk_flags, empty_text="Риски пока не отмечены.") + "</section>",
+        "<section><h2>Что неизвестно</h2>" + render_list(lead.missing_info, empty_text="Нет отмеченных пробелов.") + "</section>",
+        "<section><h2>Подтверждения</h2>" + render_evidence(lead.source_snippets) + "</section>",
+        "<section>",
+        "<h2>История</h2>",
+        render_activity_log(activity, empty_text="История контакта пока пуста."),
+        "</section>",
+    ]
+    return render_layout("Карточка контакта", "\n".join(body))
 
 
 def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
@@ -392,6 +439,22 @@ def render_add_link_form() -> str:
     )
 
 
+def render_add_lead_form() -> str:
+    return (
+        "<section>"
+        "<h2>Добавить контакт или направление</h2>"
+        "<form method=\"post\" action=\"/leads\">"
+        f"<label>Направление <select name=\"category\">{lead_category_options('b2b')}</select></label>"
+        "<label>Название <input name=\"name\" required placeholder=\"Компания, блогер, маркет или кампания\"></label>"
+        "<label>Организация <input name=\"organization\" placeholder=\"Юрлицо, бренд или площадка\"></label>"
+        "<label>Ссылка <input name=\"url\" type=\"url\" placeholder=\"https://example.org\"></label>"
+        "<label>Краткое описание <textarea name=\"description\" rows=\"4\" placeholder=\"Почему это может быть интересно фонду\"></textarea></label>"
+        "<button type=\"submit\">Добавить</button>"
+        "</form>"
+        "</section>"
+    )
+
+
 def render_opportunity_table(opportunities: Iterable[Opportunity], *, empty_text: str) -> str:
     rows = list(opportunities)
     if not rows:
@@ -442,6 +505,30 @@ def render_application_table(
     return (
         "<table>"
         "<thead><tr><th>Возможность</th><th>Стадия</th><th>Ответственный</th><th>Ответ</th><th>Отчет</th><th>Следующий шаг</th></tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+
+
+def render_lead_table(leads: Iterable[FundraisingLead], *, empty_text: str) -> str:
+    rows = list(leads)
+    if not rows:
+        return f"<p class=\"muted\">{escape(empty_text)}</p>"
+    body_rows = []
+    for lead in rows:
+        body_rows.append(
+            "<tr>"
+            f"<td><a href=\"/leads/{escape(lead.id)}\">{escape(lead.name)}</a><br><span class=\"muted\">{escape(lead.organization)}</span></td>"
+            f"<td>{escape(lead_category_label(lead.category))}</td>"
+            f"<td>{status_badge(lead_status_label(lead.status))}<br>{review_badge(lead.review_state)}</td>"
+            f"<td>{escape(lead.owner or 'Не назначен')}</td>"
+            f"<td>{escape(lead.recheck_at or lead.deadline or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(lead.next_action)}</td>"
+            "</tr>"
+        )
+    return (
+        "<table>"
+        "<thead><tr><th>Название</th><th>Направление</th><th>Состояние</th><th>Ответственный</th><th>Дата</th><th>Следующее действие</th></tr></thead>"
         f"<tbody>{''.join(body_rows)}</tbody>"
         "</table>"
     )
@@ -559,6 +646,29 @@ def render_operator_actions(opportunity: Opportunity) -> str:
     )
 
 
+def render_lead_actions(lead: FundraisingLead) -> str:
+    return (
+        "<section>"
+        "<h2>Работа с контактом</h2>"
+        "<div class=\"toolbar\">"
+        f"<form method=\"post\" action=\"/leads/{escape(lead.id)}/status\">"
+        f"<label>Статус <select name=\"status\">{lead_status_options(lead.status)}</select></label>"
+        f"<label>Проверка <select name=\"review_state\">{review_state_options(lead.review_state)}</select></label>"
+        "<button type=\"submit\">Сохранить состояние</button>"
+        "</form>"
+        f"<form method=\"post\" action=\"/leads/{escape(lead.id)}/owner\">"
+        f"<label>Ответственный <input name=\"owner\" value=\"{escape(lead.owner, quote=True)}\" placeholder=\"Имя\"></label>"
+        "<button type=\"submit\">Назначить</button>"
+        "</form>"
+        "</div>"
+        f"<form method=\"post\" action=\"/leads/{escape(lead.id)}/note\">"
+        f"<label>Заметка <textarea name=\"notes\" rows=\"4\" placeholder=\"Что важно помнить перед ручным контактом\">{escape(lead.notes)}</textarea></label>"
+        "<button type=\"submit\">Сохранить заметку</button>"
+        "</form>"
+        "</section>"
+    )
+
+
 def render_analyze_form(opportunity_id: str) -> str:
     return (
         "<section>"
@@ -596,6 +706,14 @@ def review_state_options(current: str) -> str:
 
 def readiness_state_options(current: str) -> str:
     return "".join(option(value, label, current) for value, label in READINESS_STATE_LABELS.items())
+
+
+def lead_category_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in LEAD_CATEGORIES.items())
+
+
+def lead_status_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in LEAD_STATUSES.items())
 
 
 def application_status_options(current: str) -> str:

@@ -167,6 +167,47 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertEqual(fake_service.limit_per_query, 5)
         self.assertIn("created=2", output.getvalue())
 
+    def test_cli_lead_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                add_code = cli_main(
+                    [
+                        "--store",
+                        str(store_path),
+                        "lead-add",
+                        "--category",
+                        "b2b",
+                        "--name",
+                        "Компания заботы",
+                        "--organization",
+                        "ООО Забота",
+                        "--url",
+                        "https://company.example",
+                        "--description",
+                        "HR wellbeing",
+                    ]
+                )
+            lead_id = output.getvalue().strip()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status_code = cli_main(["--store", str(store_path), "lead-status", lead_id, "contact_planned"])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                list_code = cli_main(["--store", str(store_path), "leads"])
+            list_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                show_code = cli_main(["--store", str(store_path), "lead-show", lead_id])
+            show_text = output.getvalue()
+        self.assertEqual(add_code, 0)
+        self.assertEqual(status_code, 0)
+        self.assertEqual(list_code, 0)
+        self.assertEqual(show_code, 0)
+        self.assertIn("contact_planned", list_text)
+        self.assertIn("Компания заботы", show_text)
+
 
 class FakeStore:
     def __init__(self) -> None:

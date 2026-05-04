@@ -11,7 +11,8 @@ This repository is built to be safe for long-running coding agents. Read this fi
 - System roadmap: `docs/ROADMAP.md`
 - UI strategy: `docs/UI_STRATEGY.md`
 - Detailed service usage: `docs/USAGE.md`
-- Active plan: `docs/exec-plans/active/mvp-platform-applications-agent.md`
+- Active MVP plan: `docs/exec-plans/active/mvp-platform-applications-agent.md`
+- Active roadmap plan: `docs/exec-plans/active/global-roadmap-autonomous-development.md`
 - Progress log: `docs/agent-progress.md`
 - Feature list: `docs/feature-list.json`
 
@@ -44,6 +45,7 @@ This repository is built to be safe for long-running coding agents. Read this fi
 
 - Turn every task into verifiable goals.
 - Add or update tests with the feature.
+- For roadmap work, take the first feature in `docs/feature-list.json` with `passes: false`, keep the work local/demo/mock-first, and do not advance to the next feature until checks pass.
 - Keep `README.md` current when commands, env vars, storage shape, or behavior change.
 - Keep `docs/USAGE.md` current with detailed operator-facing instructions whenever setup, CLI, Telegram, storage, Yandex, Google Sheets, or workflow behavior changes.
 - Keep `docs/UI_STRATEGY.md` current when user-facing screens, labels, statuses, review flows, or frontend scope change.

@@ -16,7 +16,7 @@ class TelegramCommandHandler:
             return "Команда не распознана."
         command = parts[0]
         if command == "/digest":
-            return build_digest(self.store.list_opportunities())
+            return build_digest(self.store.list_opportunities(), leads=self.store.list_leads())
         if command == "/add_link" and len(parts) >= 2:
             opportunity = Opportunity.from_url(parts[1])
             self.store.upsert_opportunity(opportunity)
@@ -49,4 +49,3 @@ def run_polling_bot(token: str, handler: TelegramCommandHandler) -> None:
         app.add_handler(CommandHandler(command, reply))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply))
     app.run_polling()
-

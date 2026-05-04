@@ -6,6 +6,8 @@ See `docs/ROADMAP.md` for the staged product roadmap. This document captures the
 
 The first agent covers platforms and applications. It tracks opportunities, requirements, deadlines, checklists, drafts, and application status.
 
+The shared lead workspace is the bridge to the broader roadmap. It tracks non-application fundraising records such as business partners, service ideas, markets, bloggers, and donor campaign segments without external sends.
+
 ## Future System Directions
 
 - Opportunity radar: platforms, bank programs, grants, markets, pro bono platforms, corporate CSR programs, competitions, and events.

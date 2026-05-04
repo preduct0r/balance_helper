@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
 from balance_fundraising.clients.yandex_search import SearchResult
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
 from balance_fundraising.services.applications import (
     build_reporting_checklist,
     create_application_for_opportunity,
@@ -248,6 +248,37 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("discover_error", {item.action for item in activity})
         self.assertNotIn("SECRET_KEY", details)
         self.assertNotIn("SECRET_FOLDER", details)
+
+    def test_fundraising_lead_defaults_and_local_store_updates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            lead = FundraisingLead.from_values(
+                category="b2b",
+                name="Компания заботы",
+                organization="ООО Забота",
+                url="https://company.example",
+            )
+            lead.risk_flags = ["Проверить репутацию"]
+            store.upsert_lead(lead)
+            updated = store.update_lead_fields(lead.id, {"owner": "Анна", "status": "contact_planned"})
+            stored = store.get_lead(lead.id)
+        self.assertTrue(lead.id.startswith("lead_"))
+        self.assertEqual(stored.category, "b2b")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(stored.status, "contact_planned")
+        self.assertEqual(stored.risk_flags, ["Проверить репутацию"])
+
+    def test_digest_includes_lead_followups_and_review(self) -> None:
+        lead = FundraisingLead.from_values(category="b2b", name="HR partner", url="https://hr.example")
+        lead.recheck_at = "2026-04-12"
+        lead.deadline = "2026-05-01"
+        lead.next_action = "Вернуться с письмом"
+        digest = build_digest([], leads=[lead], today=date(2026, 4, 26))
+        self.assertIn(lead.id, digest)
+        self.assertIn("нет ответственного", digest)
+        self.assertIn("проверка просрочена", digest)
+        self.assertIn("дедлайн 2026-05-01", digest)
 
 
 class FakeSearchClient:

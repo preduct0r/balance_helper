@@ -60,8 +60,24 @@ def main() -> int:
         feedback_id = [item for item in store.list_activity() if item.action == "operator_feedback"][0].id
         app.post(f"/feedback/{feedback_id}/status", {"status": "reviewed"})
         app.post("/radar/run", {"query": "тестовый радар", "limit": "5"})
+        app.post(
+            "/leads",
+            {
+                "category": "b2b",
+                "name": "Компания заботы",
+                "organization": "ООО Забота",
+                "url": "https://company.example",
+                "description": "HR wellbeing",
+            },
+        )
+        lead = store.list_leads()[0]
+        app.post(f"/leads/{lead.id}/owner", {"owner": "Оператор"})
+        app.post(f"/leads/{lead.id}/status", {"status": "contact_planned", "review_state": "needs_review"})
+        app.post(f"/leads/{lead.id}/note", {"notes": "Подготовить письмо вручную."})
         root_status, root_html = app.render("/")
         radar_status, radar_html = app.render("/radar")
+        leads_status, leads_html = app.render("/leads")
+        lead_detail_status, lead_detail_html = app.render(f"/leads/{lead.id}")
         applications_status, applications_html = app.render("/applications")
         application_detail_status, application_detail_html = app.render(f"/applications/{application.id}")
         first_run_status, first_run_html = app.render("/first-run")
@@ -70,6 +86,8 @@ def main() -> int:
         detail_status, detail_html = app.render(f"/opportunities/{opportunity.id}")
     assert root_status == 200
     assert radar_status == 200
+    assert leads_status == 200
+    assert lead_detail_status == 200
     assert applications_status == 200
     assert application_detail_status == 200
     assert first_run_status == 200
@@ -79,6 +97,9 @@ def main() -> int:
     assert "Рабочий стол фандрайзинга" in root_html
     assert "Радар" in radar_html
     assert "Радарная находка" in radar_html
+    assert "Контакты и направления" in leads_html
+    assert "Компания заботы" in lead_detail_html
+    assert "ничего не отправляет" in lead_detail_html
     assert "Заявки" in applications_html
     assert "Карточка заявки" in application_detail_html
     assert "Приняли, нужно подготовить отчет" in application_detail_html

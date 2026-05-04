@@ -24,6 +24,7 @@ from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.doctor import doctor_has_errors, format_doctor_report, run_doctor
 from balance_fundraising.services.draft import build_application_draft
+from balance_fundraising.services.leads import create_lead, lead_category_label, lead_status_label, update_lead_status
 from balance_fundraising.yandex_api import load_env_file
 
 
@@ -42,6 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("doctor")
     subparsers.add_parser("seed-demo")
     subparsers.add_parser("applications")
+    subparsers.add_parser("leads")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -76,6 +78,20 @@ def main(argv: list[str] | None = None) -> int:
     application_note = subparsers.add_parser("application-note")
     application_note.add_argument("application_id")
     application_note.add_argument("text")
+
+    lead_add = subparsers.add_parser("lead-add")
+    lead_add.add_argument("--category", default="b2b")
+    lead_add.add_argument("--name", required=True)
+    lead_add.add_argument("--organization", default="")
+    lead_add.add_argument("--url", default="")
+    lead_add.add_argument("--description", default="")
+
+    lead_show = subparsers.add_parser("lead-show")
+    lead_show.add_argument("lead_id")
+
+    lead_status = subparsers.add_parser("lead-status")
+    lead_status.add_argument("lead_id")
+    lead_status.add_argument("status")
 
     subparsers.add_parser("bot")
 
@@ -121,6 +137,10 @@ def main(argv: list[str] | None = None) -> int:
         for application in store.list_applications():
             print(f"{application.id}\t{application.opportunity_id}\t{application.status}\t{application.next_action}")
         return 0
+    if args.command == "leads":
+        for lead in store.list_leads():
+            print(f"{lead.id}\t{lead.category}\t{lead.name}\t{lead.status}\t{lead.next_action}")
+        return 0
     if args.command == "application-create":
         application = create_application_for_opportunity(store, args.opportunity_id)
         print(application.id)
@@ -151,6 +171,29 @@ def main(argv: list[str] | None = None) -> int:
         application = update_application_note(store, args.application_id, args.text)
         print(f"{application.id}: note updated")
         return 0
+    if args.command == "lead-add":
+        lead = create_lead(
+            store,
+            category=args.category,
+            name=args.name,
+            organization=args.organization,
+            url=args.url,
+            description=args.description,
+        )
+        print(lead.id)
+        return 0
+    if args.command == "lead-status":
+        lead = update_lead_status(store, args.lead_id, status=args.status)
+        print(f"{lead.id}: {lead.status}")
+        return 0
+    if args.command == "lead-show":
+        lead = store.get_lead(args.lead_id)
+        print(f"{lead.id}\t{lead_category_label(lead.category)}\t{lead.name}\t{lead_status_label(lead.status)}")
+        print(f"organization: {lead.organization}")
+        print(f"owner: {lead.owner or 'Не назначен'}")
+        print(f"next_action: {lead.next_action}")
+        print(f"recheck_at: {lead.recheck_at or '[НУЖНО УТОЧНИТЬ]'}")
+        return 0
     if args.command == "analyze":
         text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else None
         llm = YandexLLMClient() if args.use_llm else None
@@ -168,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
         print(build_application_draft(store.get_opportunity(args.opportunity_id), store.list_fund_wiki()))
         return 0
     if args.command == "digest":
-        print(build_digest(store.list_opportunities(), applications=store.list_applications()))
+        print(build_digest(store.list_opportunities(), applications=store.list_applications(), leads=store.list_leads()))
         return 0
     if args.command == "bot":
         token = os.getenv("TELEGRAM_BOT_TOKEN")

@@ -103,6 +103,8 @@ Phase 3 now continues as a follow-up and reporting workspace: each application h
 
 The next operator-facing layer is the "Радар" screen: curated discovery moves from CLI into the local web UI, but search results stay as unapproved findings. The operator starts search manually, reviews new cards, and decides whether to analyze them.
 
+The roadmap workspace now adds "Контакты и направления": a shared lead area for future B2B, paid services, events, bloggers, and donor campaigns. It should stay quiet and operational: internal status, owner, notes, source, risks, missing info, and next action, with no external contact from the system.
+
 ### UI Phase 3A: FundWiki And Readiness
 
 Make "Паспорт фонда" editable in the local web UI and show required reusable facts for applications: mission, audience, programs, start year, impact, legal details, reports, public links, and presentation. Opportunity cards should show "Готовность заявки" so the operator sees exactly what blocks human review.

@@ -173,5 +173,95 @@
       "README, docs/USAGE.md, docs/UI_STRATEGY.md, and smoke checks document the radar workflow."
     ],
     "passes": true
+  },
+  {
+    "id": "shared-lead-workspace",
+    "priority": 1,
+    "description": "Common local-first lead workspace for future fundraising directions beyond platform applications.",
+    "acceptance_steps": [
+      "FundraisingLead is stored in local JSON and Google Sheets through the shared store interface.",
+      "CLI supports leads, lead-add, lead-show, and lead-status without external services.",
+      "Web UI exposes /leads and /leads/<id> with safe status, owner, and note actions.",
+      "Digest and review queue include leads that need owner, review, follow-up, or deadline attention.",
+      "README, docs/USAGE.md, docs/ROADMAP.md, and active exec plan document autonomous local-first roadmap development."
+    ],
+    "passes": true
+  },
+  {
+    "id": "b2b-partner-agent",
+    "priority": 2,
+    "description": "B2B partner agent for company leads, fit analysis, risk checks, and human-reviewed first-contact drafts.",
+    "acceptance_steps": [
+      "B2B leads use the shared lead workspace.",
+      "B2B radar and drafts run with mocked external clients in tests.",
+      "Drafts are human-review only and use approved FundWiki and lead evidence."
+    ],
+    "passes": false
+  },
+  {
+    "id": "paid-services-agent",
+    "priority": 2,
+    "description": "Paid service offer workspace for corporate lectures, workshops, internships, and educational products.",
+    "acceptance_steps": [
+      "Service offers are stored locally and can be reviewed in the web UI.",
+      "B2B drafts can reference selected approved offers.",
+      "Unknown prices or promises are marked instead of guessed."
+    ],
+    "passes": false
+  },
+  {
+    "id": "events-merch-agent",
+    "priority": 3,
+    "description": "Events and merch workflow for markets, materials, volunteer shifts, and post-event reporting.",
+    "acceptance_steps": [
+      "Event leads use the shared lead workspace.",
+      "Event checklist covers application deadline, materials, volunteers, merch, costs, and post-report.",
+      "No inventory-heavy workflow is added before validation."
+    ],
+    "passes": false
+  },
+  {
+    "id": "blogger-ambassador-agent",
+    "priority": 3,
+    "description": "Blogger and ambassador workflow with ethics checks, reputation risks, and human-reviewed collaboration drafts.",
+    "acceptance_steps": [
+      "Blogger leads use the shared lead workspace.",
+      "Risk checklist flags stigma, pressure, consent, and reputation issues.",
+      "Templates avoid stigmatizing language."
+    ],
+    "passes": false
+  },
+  {
+    "id": "private-donor-campaign-agent",
+    "priority": 3,
+    "description": "Private donor campaign workspace for segments, gratitude, impact digest, and reactivation drafts without storing personal donor data.",
+    "acceptance_steps": [
+      "Donor campaigns store segment-level records only.",
+      "Drafts are human-review only and avoid manipulative language.",
+      "No personal donor data is required for v1."
+    ],
+    "passes": false
+  },
+  {
+    "id": "cross-agent-operator-dashboard",
+    "priority": 4,
+    "description": "Unified dashboard, digest, and review queue across platforms, applications, leads, offers, events, bloggers, and donor campaigns.",
+    "acceptance_steps": [
+      "Dashboard groups urgent work across all implemented agent modules.",
+      "Review queue uses consistent human-review boundaries.",
+      "Digest remains deterministic in tests."
+    ],
+    "passes": false
+  },
+  {
+    "id": "final-validation-and-hardening",
+    "priority": 5,
+    "description": "Final real-world validation, integration hardening, and UI/deployment decisions after the roadmap skeleton is implemented.",
+    "acceptance_steps": [
+      "Manual real-world smoke covers all implemented agent modules.",
+      "Findings are recorded before UI framework, auth, deployment, or real-send integrations are chosen.",
+      "External integrations remain optional and documented."
+    ],
+    "passes": false
   }
 ]

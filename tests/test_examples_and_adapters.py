@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.google_sheets_store import GoogleSheetsStore
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,6 +71,20 @@ class ExampleAndAdapterTests(unittest.TestCase):
             activity = store.list_activity()
         self.assertEqual(updated.status, "ignored")
         self.assertEqual(activity[0].status, "ignored")
+
+    def test_google_sheets_lead_methods(self) -> None:
+        spreadsheet = FakeSpreadsheet()
+        store = GoogleSheetsStore("sheet", "service.json")
+        with patch.object(store, "_open", return_value=spreadsheet):
+            store.init_store()
+            lead = FundraisingLead.from_values(category="b2b", name="Компания", url="https://company.example")
+            lead.risk_flags = ["Проверить репутацию"]
+            store.upsert_lead(lead)
+            updated = store.update_lead_fields(lead.id, {"status": "contact_planned", "owner": "Анна"})
+            leads = store.list_leads()
+        self.assertEqual(updated.status, "contact_planned")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(leads[0].risk_flags, ["Проверить репутацию"])
 
 
 class FakeWorksheet:

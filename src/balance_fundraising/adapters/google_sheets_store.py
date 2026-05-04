@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 from balance_fundraising.adapters.local_json_store import DEFAULT_FUND_WIKI, TABLES
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
 
 
 class GoogleSheetsStore:
@@ -67,6 +67,25 @@ class GoogleSheetsStore:
             setattr(application, key, value)
         self.upsert_application(application)
         return application
+
+    def upsert_lead(self, lead: FundraisingLead) -> None:
+        self._upsert_row("Leads", "id", lead.to_dict())
+
+    def get_lead(self, lead_id: str) -> FundraisingLead:
+        for lead in self.list_leads():
+            if lead.id == lead_id:
+                return lead
+        raise KeyError(f"Lead not found: {lead_id}")
+
+    def list_leads(self) -> List[FundraisingLead]:
+        return [FundraisingLead.from_dict(row) for row in self._records("Leads") if row.get("id")]
+
+    def update_lead_fields(self, lead_id: str, fields: Dict[str, object]) -> FundraisingLead:
+        lead = self.get_lead(lead_id)
+        for key, value in fields.items():
+            setattr(lead, key, value)
+        self.upsert_lead(lead)
+        return lead
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         return [FundWikiEntry.from_dict(row) for row in self._records("FundWiki") if row.get("key")]

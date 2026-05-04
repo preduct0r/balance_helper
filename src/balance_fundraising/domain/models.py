@@ -16,6 +16,12 @@ def application_id_for_opportunity(opportunity_id: str) -> str:
     return f"app_{digest}"
 
 
+def lead_id_for_values(category: str, name: str, url: str = "", organization: str = "") -> str:
+    source = url or f"{name}|{organization}"
+    digest = hashlib.sha1(f"{category}|{source}".encode("utf-8")).hexdigest()[:10]
+    return f"lead_{digest}"
+
+
 def activity_id_for_values(timestamp: str, action: str, entity_id: str, details: str) -> str:
     digest = hashlib.sha1(f"{timestamp}|{action}|{entity_id}|{details}".encode("utf-8")).hexdigest()[:10]
     return f"act_{digest}"
@@ -129,6 +135,70 @@ class Application:
             if field_name not in values:
                 continue
             value = values[field_name]
+            if value is None and field_info.default is not MISSING:
+                continue
+            payload[field_name] = value
+        return cls(**payload)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class FundraisingLead:
+    id: str
+    category: str
+    name: str = "[НУЖНО УТОЧНИТЬ]"
+    organization: str = "[НУЖНО УТОЧНИТЬ]"
+    url: str = ""
+    description: str = ""
+    status: str = "needs_review"
+    fit_for_fund: str = "unknown"
+    risk_flags: List[str] = field(default_factory=list)
+    missing_info: List[str] = field(default_factory=list)
+    source_snippets: List[str] = field(default_factory=list)
+    contact: str = ""
+    owner: str = ""
+    next_action: str = "Проверить человеком"
+    deadline: Optional[str] = None
+    recheck_at: Optional[str] = None
+    last_checked: Optional[str] = None
+    notes: str = ""
+    review_state: str = "needs_review"
+    confidence: float = 0.0
+
+    @classmethod
+    def from_values(
+        cls,
+        *,
+        category: str,
+        name: str,
+        organization: str = "",
+        url: str = "",
+        description: str = "",
+    ) -> "FundraisingLead":
+        return cls(
+            id=lead_id_for_values(category, name, url, organization),
+            category=category,
+            name=name or "[НУЖНО УТОЧНИТЬ]",
+            organization=organization or "[НУЖНО УТОЧНИТЬ]",
+            url=url,
+            description=description,
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "FundraisingLead":
+        values = dict(data)
+        payload: Dict[str, Any] = {}
+        list_fields = {"risk_flags", "missing_info", "source_snippets"}
+        for field_name, field_info in cls.__dataclass_fields__.items():
+            if field_name not in values:
+                continue
+            value = values[field_name]
+            if field_name in list_fields:
+                value = _coerce_list(value)
+            elif field_name == "confidence":
+                value = _coerce_float(value)
             if value is None and field_info.default is not MISSING:
                 continue
             payload[field_name] = value

@@ -17,12 +17,14 @@ from balance_fundraising.adapters.web import (
     render_applications,
     render_dashboard,
     render_fund_wiki,
+    render_lead_detail,
+    render_leads,
     render_opportunity_detail,
     render_radar,
     render_review_queue,
 )
 from balance_fundraising.clients.yandex_search import SearchResult
-from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, FundraisingLead, Opportunity
 
 
 class WebUiTests(unittest.TestCase):
@@ -121,6 +123,41 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("Нужно проверить", html)
         self.assertNotIn("Уже проверено", html)
 
+    def test_leads_list_detail_and_safe_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store)
+            status, location = app.post(
+                "/leads",
+                {
+                    "category": "b2b",
+                    "name": "Компания заботы",
+                    "organization": "ООО Забота",
+                    "url": "https://company.example",
+                    "description": "HR wellbeing",
+                },
+            )
+            lead_id = location.rsplit("/", 1)[-1]
+            app.post(f"/leads/{lead_id}/owner", {"owner": "Анна"})
+            app.post(f"/leads/{lead_id}/status", {"status": "contact_planned", "review_state": "needs_review"})
+            app.post(f"/leads/{lead_id}/note", {"notes": "Подготовить письмо вручную"})
+            list_html = render_leads(store)
+            detail_html = render_lead_detail(store, lead_id)
+            review_html = render_review_queue(store)
+            updated = store.get_lead(lead_id)
+        self.assertEqual(status, 303)
+        self.assertEqual(location, f"/leads/{lead_id}")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(updated.status, "contact_planned")
+        self.assertEqual(updated.notes, "Подготовить письмо вручную")
+        self.assertIn("Контакты и направления", list_html)
+        self.assertIn("Компания заботы", list_html)
+        self.assertIn("Карточка контакта", detail_html)
+        self.assertIn("HR wellbeing", detail_html)
+        self.assertIn("ничего не отправляет", detail_html)
+        self.assertIn("Компания заботы", review_html)
+
     def test_add_link_handler_creates_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = LocalJsonStore(Path(tmp) / "store.json")
@@ -186,10 +223,15 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/applications")[0], 200)
             self.assertEqual(app.render("/first-run")[0], 200)
             self.assertEqual(app.render("/radar")[0], 200)
+            self.assertEqual(app.render("/leads")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
             self.assertEqual(app.render(f"/opportunities/{opportunity_id}")[0], 200)
+            lead_status, lead_location = app.post("/leads", {"category": "b2b", "name": "Новый контакт"})
+            lead_id = lead_location.rsplit("/", 1)[-1]
+            self.assertEqual(lead_status, 303)
+            self.assertEqual(app.render(f"/leads/{lead_id}")[0], 200)
             app.post(f"/opportunities/{opportunity_id}/analyze", {"source_text": "НКО. Нужна отчетность."})
             detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
         self.assertEqual(detail_status, 200)

@@ -30,6 +30,10 @@ class HarnessDocsTests(unittest.TestCase):
             "application-show",
             "application-dates",
             "application-note",
+            "leads",
+            "lead-add",
+            "lead-show",
+            "lead-status",
         ]:
             self.assertIn(command, readme)
         for env in [
@@ -71,6 +75,8 @@ class HarnessDocsTests(unittest.TestCase):
         for phrase in [
             "Product North Star",
             "MVP: Platforms And Applications",
+            "Autonomous Development",
+            "Shared Lead Workspace",
             "B2B Agent",
             "Private Donor Agent",
             "Blogger And Ambassador Agent",
@@ -136,10 +142,31 @@ class HarnessDocsTests(unittest.TestCase):
             "Радар",
             "discover --query",
             "discover --limit",
+            "Контакты и направления",
+            "lead-add",
+            "lead-status",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:
             self.assertIn(phrase, usage)
+
+    def test_global_roadmap_exec_plan_exists(self) -> None:
+        active = (ROOT / "docs/exec-plans/active/global-roadmap-autonomous-development.md").read_text(encoding="utf-8")
+        feature_list = json.loads((ROOT / "docs/feature-list.json").read_text(encoding="utf-8"))
+        feature_ids = {item["id"]: item for item in feature_list}
+        for feature_id in [
+            "shared-lead-workspace",
+            "b2b-partner-agent",
+            "paid-services-agent",
+            "events-merch-agent",
+            "blogger-ambassador-agent",
+            "private-donor-campaign-agent",
+            "cross-agent-operator-dashboard",
+            "final-validation-and-hardening",
+        ]:
+            self.assertIn(feature_id, feature_ids)
+            self.assertIn(feature_id, active)
+        self.assertIn("first roadmap feature with `passes: false`", active)
 
 
 if __name__ == "__main__":

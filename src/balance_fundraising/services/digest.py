@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Iterable, List
 
-from balance_fundraising.domain import Application, Opportunity
+from balance_fundraising.domain import Application, FundraisingLead, Opportunity
 
 
 def build_digest(
     opportunities: Iterable[Opportunity],
     *,
     applications: Iterable[Application] | None = None,
+    leads: Iterable[FundraisingLead] | None = None,
     today: date | None = None,
     horizon_days: int = 14,
 ) -> str:
@@ -22,6 +23,9 @@ def build_digest(
             urgent.append(f"- {opportunity.id}: {opportunity.name} — {label}; {opportunity.next_action}")
     for application in sorted(applications or [], key=lambda item: (_deadline_sort_key(_application_sort_date(item)), item.id)):
         for line in _application_digest_lines(application, current, horizon_days):
+            urgent.append(line)
+    for lead in sorted(leads or [], key=lambda item: (_deadline_sort_key(_lead_sort_date(item)), item.name)):
+        for line in _lead_digest_lines(lead, current, horizon_days):
             urgent.append(line)
     if not urgent:
         return "Срочных действий нет."
@@ -47,6 +51,10 @@ def _application_sort_date(application: Application) -> str | None:
     return application.response_due_at or application.reporting_due_at or application.recheck_at
 
 
+def _lead_sort_date(lead: FundraisingLead) -> str | None:
+    return lead.deadline or lead.recheck_at
+
+
 def _application_digest_lines(application: Application, today: date, horizon_days: int) -> List[str]:
     lines = []
     if not application.owner:
@@ -66,4 +74,24 @@ def _application_digest_lines(application: Application, today: date, horizon_day
         if label:
             prefix = "проверка просрочена" if application.recheck_at < today.isoformat() else "проверить"
             lines.append(f"- {application.id}: {prefix} {application.recheck_at}; {application.next_action}")
+    return lines
+
+
+def _lead_digest_lines(lead: FundraisingLead, today: date, horizon_days: int) -> List[str]:
+    lines = []
+    if not lead.owner:
+        lines.append(f"- {lead.id}: нет ответственного; {lead.next_action}")
+    if lead.review_state != "reviewed":
+        lines.append(f"- {lead.id}: нужна проверка; {lead.next_action}")
+    if lead.deadline:
+        label = _deadline_label(lead.deadline, today, horizon_days)
+        if label:
+            lines.append(f"- {lead.id}: {label}; {lead.next_action}")
+    if lead.recheck_at:
+        label = _deadline_label(lead.recheck_at, today, horizon_days)
+        if label:
+            prefix = "проверка просрочена" if lead.recheck_at < today.isoformat() else "проверить"
+            lines.append(f"- {lead.id}: {prefix} {lead.recheck_at}; {lead.next_action}")
+    if lead.confidence and lead.confidence < 0.4:
+        lines.append(f"- {lead.id}: низкая уверенность; проверить источники")
     return lines

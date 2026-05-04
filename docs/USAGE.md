@@ -183,6 +183,30 @@ Save an internal application note:
 PYTHONPATH=src python3 -m balance_fundraising.cli application-note <application_id> "Ответ ждём в кабинете платформы"
 ```
 
+Show contacts and future fundraising directions:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli leads
+```
+
+Add a contact or direction for the roadmap workspace:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli lead-add --category b2b --name "Компания заботы" --url https://company.example --description "HR wellbeing"
+```
+
+Move an internal lead to another safe stage:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli lead-status <lead_id> contact_planned
+```
+
+Show one lead:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli lead-show <lead_id>
+```
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -230,6 +254,7 @@ The first web UI is local-only. It shows:
 
 - dashboard with urgent actions and missing deadlines;
 - `Радар` for curated Yandex Search discovery;
+- `Контакты и направления` for future B2B, paid services, events, bloggers, and donor campaign records;
 - opportunity list;
 - application list;
 - application detail page with response, reporting, history, and follow-up dates;
@@ -244,6 +269,18 @@ The first web UI is local-only. It shows:
 - local heuristic analysis from pasted text or the source URL.
 
 It does not send applications, emails, reports, or partner messages.
+
+### Контакты и направления
+
+Use this section for roadmap records that are not platform applications yet: a potential business partner, paid service idea, market, blogger, or donor campaign segment.
+
+1. Open "Контакты и направления".
+2. Add a record with category, name, optional organization, source link, and short description.
+3. Open the card and assign an owner if someone should check it.
+4. Update status, review state, and notes only as internal tracking.
+5. Use the digest and "Проверка" queue to catch missing owners, review items, recheck dates, and upcoming deadlines.
+
+Lead records do not send emails, create applications, or contact anyone. They are the shared workspace for future B2B, paid service, event, blogger, and donor-campaign agents.
 
 ### Радар: как искать новые площадки
 
@@ -462,6 +499,7 @@ The production plan uses Google Sheets with these tabs:
 
 - `Opportunities`
 - `Applications`
+- `Leads`
 - `FundWiki`
 - `Documents`
 - `ActivityLog`
