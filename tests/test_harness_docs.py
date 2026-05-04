@@ -54,6 +54,12 @@ class HarnessDocsTests(unittest.TestCase):
             "blogger-analyze",
             "blogger-checklist",
             "blogger-draft",
+            "donor-campaigns",
+            "donor-campaign-add",
+            "donor-campaign-show",
+            "donor-campaign-status",
+            "donor-campaign-note",
+            "donor-campaign-draft",
         ]:
             self.assertIn(command, readme)
         for env in [
@@ -185,6 +191,11 @@ class HarnessDocsTests(unittest.TestCase):
             "blogger-draft",
             "этический чек-лист",
             "без рассылок",
+            "Доноры",
+            "donor-campaign-add",
+            "donor-campaign-draft",
+            "без персональных данных",
+            "без отправки сообщений",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

@@ -31,6 +31,14 @@ from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.doctor import doctor_has_errors, format_doctor_report, run_doctor
+from balance_fundraising.services.donors import (
+    build_donor_campaign_draft,
+    create_donor_campaign,
+    donor_campaign_status_label,
+    donor_campaign_type_label,
+    update_donor_campaign_note,
+    update_donor_campaign_status,
+)
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.events import EventDiscoveryService, build_event_checklist, create_event_lead
 from balance_fundraising.services.leads import create_lead, lead_category_label, lead_status_label, update_lead_status
@@ -73,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("offers")
     subparsers.add_parser("events")
     subparsers.add_parser("bloggers")
+    subparsers.add_parser("donor-campaigns")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -175,6 +184,26 @@ def main(argv: list[str] | None = None) -> int:
     offer_note.add_argument("offer_id")
     offer_note.add_argument("text")
 
+    donor_campaign_add = subparsers.add_parser("donor-campaign-add")
+    donor_campaign_add.add_argument("--name", required=True)
+    donor_campaign_add.add_argument("--type", dest="campaign_type", default="impact_digest")
+    donor_campaign_add.add_argument("--segment", required=True)
+    donor_campaign_add.add_argument("--goal", default="")
+
+    donor_campaign_show = subparsers.add_parser("donor-campaign-show")
+    donor_campaign_show.add_argument("campaign_id")
+
+    donor_campaign_status = subparsers.add_parser("donor-campaign-status")
+    donor_campaign_status.add_argument("campaign_id")
+    donor_campaign_status.add_argument("status")
+
+    donor_campaign_note = subparsers.add_parser("donor-campaign-note")
+    donor_campaign_note.add_argument("campaign_id")
+    donor_campaign_note.add_argument("text")
+
+    donor_campaign_draft = subparsers.add_parser("donor-campaign-draft")
+    donor_campaign_draft.add_argument("campaign_id")
+
     subparsers.add_parser("bot")
 
     web = subparsers.add_parser("web")
@@ -266,6 +295,10 @@ def main(argv: list[str] | None = None) -> int:
         for lead in store.list_leads():
             if lead.category == "blogger":
                 print(f"{lead.id}\t{lead.name}\t{lead.status}\t{lead.recheck_at or '[НУЖНО УТОЧНИТЬ]'}\t{lead.next_action}")
+        return 0
+    if args.command == "donor-campaigns":
+        for campaign in store.list_donor_campaigns():
+            print(f"{campaign.id}\t{campaign.campaign_type}\t{campaign.name}\t{campaign.status}\t{campaign.segment}")
         return 0
     if args.command == "application-create":
         application = create_application_for_opportunity(store, args.opportunity_id)
@@ -407,6 +440,36 @@ def main(argv: list[str] | None = None) -> int:
         print(f"format: {offer.format or '[НУЖНО УТОЧНИТЬ]'}")
         print(f"owner: {offer.owner or 'Не назначен'}")
         print(build_offer_description(offer, store.list_fund_wiki()))
+        return 0
+    if args.command == "donor-campaign-add":
+        campaign = create_donor_campaign(
+            store,
+            name=args.name,
+            campaign_type=args.campaign_type,
+            segment=args.segment,
+            goal=args.goal,
+        )
+        print(campaign.id)
+        return 0
+    if args.command == "donor-campaign-status":
+        campaign = update_donor_campaign_status(store, args.campaign_id, status=args.status)
+        print(f"{campaign.id}: {campaign.status}")
+        return 0
+    if args.command == "donor-campaign-note":
+        campaign = update_donor_campaign_note(store, args.campaign_id, args.text)
+        print(f"{campaign.id}: note updated")
+        return 0
+    if args.command == "donor-campaign-show":
+        campaign = store.get_donor_campaign(args.campaign_id)
+        print(f"{campaign.id}\t{donor_campaign_type_label(campaign.campaign_type)}\t{campaign.name}\t{donor_campaign_status_label(campaign.status)}")
+        print(f"segment: {campaign.segment or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"goal: {campaign.goal or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"channel: {campaign.message_channel or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"owner: {campaign.owner or 'Не назначен'}")
+        print(f"next_action: {campaign.next_action}")
+        return 0
+    if args.command == "donor-campaign-draft":
+        print(build_donor_campaign_draft(store.get_donor_campaign(args.campaign_id), store.list_fund_wiki()))
         return 0
     if args.command == "analyze":
         text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else None

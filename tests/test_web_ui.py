@@ -17,6 +17,8 @@ from balance_fundraising.adapters.web import (
     render_bloggers,
     render_b2b,
     render_b2b_detail,
+    render_donor_campaign_detail,
+    render_donor_campaigns,
     render_application_detail,
     render_applications,
     render_dashboard,
@@ -316,6 +318,52 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("ничего не отправляет", detail_html)
         self.assertIn("Новый блог", review_html)
 
+    def test_donor_campaign_workspace_create_update_and_render_draft(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store)
+            status, location = app.post(
+                "/donors",
+                {
+                    "name": "Майский impact digest",
+                    "campaign_type": "impact_digest",
+                    "segment": "регулярные доноры",
+                    "goal": "Показать результаты месяца",
+                },
+            )
+            campaign_id = location.rsplit("/", 1)[-1]
+            app.post(
+                f"/donors/{campaign_id}",
+                {
+                    "audience_description": "Люди, которые уже поддерживают фонд регулярными платежами",
+                    "message_channel": "email-рассылка без персональных данных в сервисе",
+                    "key_message": "Спасибо, регулярность помогает планировать помощь",
+                    "impact_points": "Проведены группы поддержки\nРаботает равное консультирование",
+                    "risk_flags": "Проверить тон без давления",
+                    "missing_info": "Уточнить свежие цифры",
+                    "source_snippets": "Фонд помогает людям с психическими расстройствами жить устойчивее",
+                },
+            )
+            app.post(f"/donors/{campaign_id}/owner", {"owner": "Анна"})
+            app.post(f"/donors/{campaign_id}/status", {"status": "ready_for_review", "review_state": "needs_review"})
+            app.post(f"/donors/{campaign_id}/note", {"notes": "Внутренний контекст не для черновика"})
+            donors_html = render_donor_campaigns(store)
+            detail_html = render_donor_campaign_detail(store, campaign_id)
+            updated = store.get_donor_campaign(campaign_id)
+        self.assertEqual(status, 303)
+        self.assertEqual(location, f"/donors/{campaign_id}")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(updated.status, "ready_for_review")
+        self.assertIn("Доноры", donors_html)
+        self.assertIn("Майский impact digest", donors_html)
+        self.assertIn("Карточка донорской кампании", detail_html)
+        self.assertIn("Черновик донорской кампании", detail_html)
+        self.assertIn("персональные данные", detail_html)
+        self.assertIn("ничего не отправляет", detail_html)
+        self.assertIn("Уточнить свежие цифры", detail_html)
+        self.assertNotIn("Внутренний контекст не для черновика", detail_html.split("Черновик донорской кампании", 1)[-1])
+
     def test_add_link_handler_creates_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = LocalJsonStore(Path(tmp) / "store.json")
@@ -386,6 +434,7 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/offers")[0], 200)
             self.assertEqual(app.render("/events")[0], 200)
             self.assertEqual(app.render("/bloggers")[0], 200)
+            self.assertEqual(app.render("/donors")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -407,6 +456,13 @@ class WebUiTests(unittest.TestCase):
             blogger_id = blogger_location.rsplit("/", 1)[-1]
             self.assertEqual(blogger_status, 303)
             self.assertEqual(app.render(f"/bloggers/{blogger_id}")[0], 200)
+            donor_status, donor_location = app.post(
+                "/donors",
+                {"name": "Новая кампания", "campaign_type": "gratitude", "segment": "регулярные доноры", "goal": "Поблагодарить"},
+            )
+            donor_id = donor_location.rsplit("/", 1)[-1]
+            self.assertEqual(donor_status, 303)
+            self.assertEqual(app.render(f"/donors/{donor_id}")[0], 200)
             app.post(f"/opportunities/{opportunity_id}/analyze", {"source_text": "НКО. Нужна отчетность."})
             detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
         self.assertEqual(detail_status, 200)

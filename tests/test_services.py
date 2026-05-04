@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
 from balance_fundraising.clients.yandex_search import SearchResult
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
+from balance_fundraising.domain import ActivityLogEntry, Application, DonorCampaign, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 from balance_fundraising.services.applications import (
     build_reporting_checklist,
     create_application_for_opportunity,
@@ -38,6 +38,15 @@ from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
+from balance_fundraising.services.donors import (
+    build_donor_campaign_draft,
+    build_donor_campaign_readiness,
+    create_donor_campaign,
+    find_personal_data_risks,
+    update_donor_campaign_note,
+    update_donor_campaign_owner,
+    update_donor_campaign_status,
+)
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.events import (
     EventDiscoveryService,
@@ -368,6 +377,82 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("[НУЖНО УТОЧНИТЬ]", draft)
         self.assertNotIn("не использовать", draft)
         self.assertTrue(any(item.action == "offer_status" for item in activity))
+
+    def test_donor_campaign_defaults_and_local_store_updates(self) -> None:
+        campaign = DonorCampaign.from_values(
+            name="Майский impact digest",
+            campaign_type="impact_digest",
+            segment="регулярные доноры",
+            goal="Показать результаты месяца",
+        )
+        parsed = DonorCampaign.from_dict(
+            {
+                "id": campaign.id,
+                "name": campaign.name,
+                "campaign_type": campaign.campaign_type,
+                "impact_points": "10 групп поддержки\n5 консультаций",
+                "risk_flags": "Проверить тон",
+                "missing_info": "Уточнить канал",
+                "source_snippets": "Факт из отчета",
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            store.upsert_donor_campaign(campaign)
+            updated = store.update_donor_campaign_fields(campaign.id, {"owner": "Анна", "status": "ready_for_review"})
+            stored = store.get_donor_campaign(campaign.id)
+            with self.assertRaises(KeyError):
+                store.update_donor_campaign_fields(campaign.id, {"email": "donor@example.org"})
+        self.assertTrue(campaign.id.startswith("donor_"))
+        self.assertEqual(campaign.review_state, "needs_review")
+        self.assertEqual(parsed.impact_points, ["10 групп поддержки", "5 консультаций"])
+        self.assertEqual(parsed.risk_flags, ["Проверить тон"])
+        self.assertEqual(parsed.missing_info, ["Уточнить канал"])
+        self.assertEqual(parsed.source_snippets, ["Факт из отчета"])
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(stored.status, "ready_for_review")
+
+    def test_donor_campaign_services_gap_draft_and_pii_guard(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            campaign = create_donor_campaign(
+                store,
+                name="Бережная реактивация",
+                campaign_type="reactivation",
+                segment="люди, которые давно не жертвовали",
+                goal="Напомнить о регулярной поддержке без давления",
+            )
+            campaign.key_message = "Можно вернуться к поддержке в удобном темпе"
+            campaign.impact_points = ["Проведены группы поддержки", "Работает равное консультирование"]
+            campaign.source_snippets = ["Фонд помогает людям с психическими расстройствами жить устойчивее"]
+            campaign.notes = "Секретная заметка: нельзя использовать"
+            store.upsert_donor_campaign(campaign)
+            update_donor_campaign_owner(store, campaign.id, "Мария")
+            update_donor_campaign_note(store, campaign.id, "Внутренний контекст не для письма")
+            update_donor_campaign_status(store, campaign.id, status="ready_for_review", review_state="needs_review")
+            stored = store.get_donor_campaign(campaign.id)
+            ready = build_donor_campaign_readiness(stored)
+            draft = build_donor_campaign_draft(stored, store.list_fund_wiki())
+            risks = find_personal_data_risks("ivan@example.org", "+7 999 123-45-67", "Иван Иванов")
+            activity = store.list_activity()
+            lowered = draft.lower()
+        self.assertFalse(ready)
+        self.assertIn("Уточнить канал сообщения", stored.missing_info)
+        self.assertIn("Черновик донорской кампании", draft)
+        self.assertIn("Нужна ручная проверка", draft)
+        self.assertIn("Помогать людям с психическими расстройствами", draft)
+        self.assertIn("Можно вернуться", draft)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", draft)
+        self.assertNotIn("Секретная заметка", draft)
+        self.assertNotIn("Внутренний контекст", draft)
+        for forbidden in ["срочно спасите", "вам должно быть стыдно", "без вас мы погибнем", "гарантируем результат"]:
+            self.assertNotIn(forbidden, lowered)
+        self.assertTrue(any("email" in risk.lower() for risk in risks))
+        self.assertTrue(any("телефон" in risk.lower() for risk in risks))
+        self.assertTrue(any("фио" in risk.lower() for risk in risks))
+        self.assertTrue(any(item.action == "donor_campaign_status" for item in activity))
 
     def test_digest_includes_lead_followups_and_review(self) -> None:
         lead = FundraisingLead.from_values(category="b2b", name="HR partner", url="https://hr.example")

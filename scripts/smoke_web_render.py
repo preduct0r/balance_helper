@@ -124,6 +124,31 @@ def main() -> int:
             {"source_text": "Автор пишет про психологию, ментальное здоровье и инклюзию. Есть форма обратной связи."},
         )
         app.post(f"/bloggers/{blogger_lead.id}/owner", {"owner": "Оператор"})
+        donor_status, donor_location = app.post(
+            "/donors",
+            {
+                "name": "Майский impact digest",
+                "campaign_type": "impact_digest",
+                "segment": "регулярные доноры",
+                "goal": "Показать результаты месяца",
+            },
+        )
+        donor_id = donor_location.rsplit("/", 1)[-1]
+        app.post(
+            f"/donors/{donor_id}",
+            {
+                "audience_description": "Сегмент без персональных данных",
+                "message_channel": "ручная рассылка вне сервиса",
+                "key_message": "Регулярная поддержка помогает планировать работу фонда",
+                "impact_points": "Проведены группы поддержки\nРаботает равное консультирование",
+                "risk_flags": "Проверить тон без давления",
+                "missing_info": "Уточнить свежие цифры",
+                "source_snippets": "Фонд помогает людям с психическими расстройствами",
+            },
+        )
+        app.post(f"/donors/{donor_id}/owner", {"owner": "Оператор"})
+        app.post(f"/donors/{donor_id}/status", {"status": "ready_for_review", "review_state": "needs_review"})
+        app.post(f"/donors/{donor_id}/note", {"notes": "Внутренняя заметка не попадает в черновик."})
         root_status, root_html = app.render("/")
         radar_status, radar_html = app.render("/radar")
         b2b_status, b2b_html = app.render("/b2b")
@@ -134,6 +159,8 @@ def main() -> int:
         event_detail_status, event_detail_html = app.render(f"/events/{event_lead.id}")
         bloggers_status, bloggers_html = app.render("/bloggers")
         blogger_detail_status, blogger_detail_html = app.render(f"/bloggers/{blogger_lead.id}")
+        donors_status, donors_html = app.render("/donors")
+        donor_detail_status, donor_detail_html = app.render(f"/donors/{donor_id}")
         leads_status, leads_html = app.render("/leads")
         lead_detail_status, lead_detail_html = app.render(f"/leads/{lead.id}")
         applications_status, applications_html = app.render("/applications")
@@ -153,6 +180,9 @@ def main() -> int:
     assert event_detail_status == 200
     assert bloggers_status == 200
     assert blogger_detail_status == 200
+    assert donor_status == 303
+    assert donors_status == 200
+    assert donor_detail_status == 200
     assert leads_status == 200
     assert lead_detail_status == 200
     assert applications_status == 200
@@ -178,6 +208,10 @@ def main() -> int:
     assert "Блог о психологии" in blogger_detail_html
     assert "Этический чек-лист" in blogger_detail_html
     assert "Черновик предложения коллаборации" in blogger_detail_html
+    assert "Доноры" in donors_html
+    assert "Майский impact digest" in donor_detail_html
+    assert "Черновик донорской кампании" in donor_detail_html
+    assert "персональные данные" in donor_detail_html
     assert "Контакты и направления" in leads_html
     assert "Компания заботы" in lead_detail_html
     assert "ничего не отправляет" in lead_detail_html

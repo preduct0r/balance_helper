@@ -31,7 +31,7 @@ UI для этого этапа сначала может оставаться s
 
 ## Shared Lead Workspace
 
-Следующий общий слой для будущих агентов — рабочее пространство контактов и направлений. Оно хранит B2B-компании, платные услуги, мероприятия, блогеров и донорские кампании в общей модели `FundraisingLead`: категория, название, источник, статус, риски, пробелы, ответственный, следующее действие, дедлайн, recheck и история. Этот слой нужен, чтобы B2B, блогеры, мероприятия и доноры не дублировали базовую логику review queue, digest, owner, notes и safe status updates.
+Следующий общий слой для будущих агентов — рабочее пространство контактов и направлений. Оно хранит B2B-компании, мероприятия и блогеров в общей модели `FundraisingLead`: категория, название, источник, статус, риски, пробелы, ответственный, следующее действие, дедлайн, recheck и история. Платные услуги и донорские кампании вынесены в отдельные сущности, потому что у них другая логика фактов, проверок и рисков.
 
 ## Phase 2: Fund Passport
 
@@ -70,6 +70,8 @@ Status: v1 implemented as a local-first B2B workspace. It creates `FundraisingLe
 - Сегменты доноров без манипулятивной коммуникации.
 - Объяснение регулярных платежей и прозрачности расходов.
 - Сбор обратной связи и анализ причин оттока.
+
+Status: v1 implemented as a local-first donor campaign workspace. It stores only segment-level `DonorCampaign` records, highlights personal-data and tone risks, and generates human-reviewed gratitude, impact digest, reactivation, and regular-donation explainer drafts. It intentionally does not store donor emails, phones, names, diagnoses, individual stories, send messages, import CRM data, process payments, or run analytics integrations.
 
 ## Phase 6: Blogger And Ambassador Agent
 

@@ -240,7 +240,7 @@
       "Drafts are human-review only and avoid manipulative language.",
       "No personal donor data is required for v1."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "cross-agent-operator-dashboard",

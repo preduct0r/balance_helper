@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.google_sheets_store import GoogleSheetsStore
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, ServiceOffer
+from balance_fundraising.domain import ActivityLogEntry, Application, DonorCampaign, FundWikiEntry, FundraisingLead, ServiceOffer
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -104,6 +104,25 @@ class ExampleAndAdapterTests(unittest.TestCase):
         self.assertEqual(updated.status, "ready_for_review")
         self.assertEqual(updated.owner, "Анна")
         self.assertEqual(offers[0].requirements, ["Бриф"])
+
+    def test_google_sheets_donor_campaign_methods(self) -> None:
+        spreadsheet = FakeSpreadsheet()
+        store = GoogleSheetsStore("sheet", "service.json")
+        with patch.object(store, "_open", return_value=spreadsheet):
+            store.init_store()
+            campaign = DonorCampaign.from_values(
+                name="Майский дайджест",
+                campaign_type="impact_digest",
+                segment="регулярные доноры",
+                goal="Показать результаты месяца",
+            )
+            campaign.impact_points = ["10 групп поддержки"]
+            store.upsert_donor_campaign(campaign)
+            updated = store.update_donor_campaign_fields(campaign.id, {"status": "ready_for_review", "owner": "Анна"})
+            campaigns = store.list_donor_campaigns()
+        self.assertEqual(updated.status, "ready_for_review")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(campaigns[0].impact_points, ["10 групп поддержки"])
 
 
 class FakeWorksheet:

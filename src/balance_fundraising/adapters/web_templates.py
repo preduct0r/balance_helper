@@ -5,7 +5,7 @@ from html import escape
 from typing import Iterable, List
 
 from balance_fundraising.adapters.web_static import WEB_CSS
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
+from balance_fundraising.domain import ActivityLogEntry, Application, DonorCampaign, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 from balance_fundraising.services.applications import (
     APPLICATION_STATUS_LABELS,
     REPORTING_STATE_LABELS,
@@ -15,6 +15,12 @@ from balance_fundraising.services.applications import (
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key, fund_wiki_label
 from balance_fundraising.services.leads import LEAD_CATEGORIES, LEAD_STATUSES, lead_category_label, lead_status_label
 from balance_fundraising.services.offers import OFFER_STATUSES, OFFER_TYPES, build_offer_description, offer_status_label, offer_type_label
+from balance_fundraising.services.donors import (
+    DONOR_CAMPAIGN_STATUSES,
+    DONOR_CAMPAIGN_TYPES,
+    donor_campaign_status_label,
+    donor_campaign_type_label,
+)
 from balance_fundraising.services.readiness import ReadinessReport
 
 STATUS_LABELS = {
@@ -54,7 +60,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/b2b">B2B</a><a href="/offers">Услуги</a><a href="/events">Мероприятия</a><a href="/bloggers">Блогеры</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/b2b">B2B</a><a href="/offers">Услуги</a><a href="/events">Мероприятия</a><a href="/bloggers">Блогеры</a><a href="/donors">Доноры</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -135,6 +141,18 @@ def render_service_offer_list_page(offers: Iterable[ServiceOffer]) -> str:
         render_add_service_offer_form(),
     ]
     return render_layout("Услуги", "\n".join(body))
+
+
+def render_donor_campaign_list_page(campaigns: Iterable[DonorCampaign]) -> str:
+    body = [
+        "<section>",
+        "<h2>Донорские кампании</h2>",
+        "<p class=\"muted\">Бережные сегментные кампании: благодарности, impact digest, реактивация и объяснение регулярных пожертвований. Здесь нет персональных данных доноров, рассылок и внешних отправок.</p>",
+        render_donor_campaign_table(campaigns, empty_text="Пока нет донорских кампаний."),
+        "</section>",
+        render_add_donor_campaign_form(),
+    ]
+    return render_layout("Доноры", "\n".join(body))
 
 
 def render_b2b_page(
@@ -577,6 +595,44 @@ def render_service_offer_detail_page(
     return render_layout("Карточка услуги", "\n".join(body))
 
 
+def render_donor_campaign_detail_page(
+    *,
+    campaign: DonorCampaign,
+    draft: str,
+    ready: bool,
+    activity: Iterable[ActivityLogEntry],
+) -> str:
+    readiness_text = "Можно передать на ручную проверку" if ready else "Есть пробелы перед использованием"
+    body = [
+        "<section>",
+        "<h2>Карточка донорской кампании</h2>",
+        "<div class=\"callout\">Система ничего не отправляет наружу и не хранит персональные данные доноров. Работайте только с сегментами, фактами фонда и ручной проверкой.</div>",
+        f"<p>{status_badge(donor_campaign_status_label(campaign.status))} {review_badge(campaign.review_state)}</p>",
+        fact_row("Название", campaign.name),
+        fact_row("Тип", donor_campaign_type_label(campaign.campaign_type)),
+        fact_row("Сегмент", campaign.segment or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Цель", campaign.goal or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Канал", campaign.message_channel or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Ключевая мысль", campaign.key_message or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Ответственный", campaign.owner or "Не назначен"),
+        fact_row("Следующее действие", campaign.next_action),
+        fact_row("Заметка", campaign.notes or "Нет заметки"),
+        f"<p class=\"{'badge-ok' if ready else 'needs-info'}\">{escape(readiness_text)}</p>",
+        "</section>",
+        render_donor_campaign_actions(campaign),
+        "<section><h2>Impact points</h2>" + render_list(campaign.impact_points, empty_text="[НУЖНО УТОЧНИТЬ] Нужны утвержденные impact-факты") + "</section>",
+        "<section><h2>Риски и этические ограничения</h2>" + render_list(campaign.risk_flags, empty_text="Риски пока не отмечены.") + "</section>",
+        "<section><h2>Что неизвестно</h2>" + render_list(campaign.missing_info, empty_text="Нет отмеченных пробелов.") + "</section>",
+        "<section><h2>Подтверждения</h2>" + render_evidence(campaign.source_snippets) + "</section>",
+        "<section><h2>Черновик</h2>" f"<pre>{escape(draft)}</pre>" "</section>",
+        "<section>",
+        "<h2>История</h2>",
+        render_activity_log(activity, empty_text="История кампании пока пуста."),
+        "</section>",
+    ]
+    return render_layout("Карточка донорской кампании", "\n".join(body))
+
+
 def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
     by_key = fund_wiki_by_key(entries)
     rows = []
@@ -754,6 +810,21 @@ def render_add_service_offer_form() -> str:
     )
 
 
+def render_add_donor_campaign_form() -> str:
+    return (
+        "<section>"
+        "<h2>Добавить донорскую кампанию</h2>"
+        "<form method=\"post\" action=\"/donors\">"
+        "<label>Название <input name=\"name\" required placeholder=\"Например: майский impact digest\"></label>"
+        f"<label>Тип <select name=\"campaign_type\">{donor_campaign_type_options('impact_digest')}</select></label>"
+        "<label>Сегмент <input name=\"segment\" required placeholder=\"Например: регулярные доноры, без ФИО и контактов\"></label>"
+        "<label>Цель <textarea name=\"goal\" rows=\"3\" placeholder=\"Чего хотим добиться бережной коммуникацией\"></textarea></label>"
+        "<button type=\"submit\">Добавить кампанию</button>"
+        "</form>"
+        "</section>"
+    )
+
+
 def render_opportunity_table(opportunities: Iterable[Opportunity], *, empty_text: str) -> str:
     rows = list(opportunities)
     if not rows:
@@ -898,6 +969,30 @@ def render_service_offer_table(offers: Iterable[ServiceOffer], *, empty_text: st
     return (
         "<table>"
         "<thead><tr><th>Услуга</th><th>Состояние</th><th>Аудитория</th><th>Формат</th><th>Ответственный</th><th>Пробелы</th></tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+
+
+def render_donor_campaign_table(campaigns: Iterable[DonorCampaign], *, empty_text: str) -> str:
+    rows = list(campaigns)
+    if not rows:
+        return f"<p class=\"muted\">{escape(empty_text)}</p>"
+    body_rows = []
+    for campaign in rows:
+        body_rows.append(
+            "<tr>"
+            f"<td><a href=\"/donors/{escape(campaign.id)}\">{escape(campaign.name)}</a><br><span class=\"muted\">{escape(donor_campaign_type_label(campaign.campaign_type))}</span></td>"
+            f"<td>{status_badge(donor_campaign_status_label(campaign.status))}<br>{review_badge(campaign.review_state)}</td>"
+            f"<td>{escape(campaign.segment or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(campaign.owner or 'Не назначен')}</td>"
+            f"<td>{escape(campaign.message_channel or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape('; '.join(campaign.missing_info) if campaign.missing_info else campaign.next_action)}</td>"
+            "</tr>"
+        )
+    return (
+        "<table>"
+        "<thead><tr><th>Кампания</th><th>Состояние</th><th>Сегмент</th><th>Ответственный</th><th>Канал</th><th>Пробелы</th></tr></thead>"
         f"<tbody>{''.join(body_rows)}</tbody>"
         "</table>"
     )
@@ -1095,6 +1190,52 @@ def render_service_offer_actions(offer: ServiceOffer) -> str:
     )
 
 
+def render_donor_campaign_actions(campaign: DonorCampaign) -> str:
+    return (
+        "<section>"
+        "<h2>Работа с кампанией</h2>"
+        "<form method=\"post\" action=\"/donors/{id}\">"
+        "<label>Описание аудитории<textarea name=\"audience_description\" rows=\"4\" placeholder=\"Описание сегмента без персональных данных\">{audience}</textarea></label>"
+        "<label>Канал <input name=\"message_channel\" value=\"{channel}\" placeholder=\"Ручная рассылка, пост, дайджест\"></label>"
+        "<label>Ключевая мысль<textarea name=\"key_message\" rows=\"4\">{key_message}</textarea></label>"
+        "<label>Impact points<textarea name=\"impact_points\" rows=\"4\" placeholder=\"Каждый факт с новой строки\">{impact}</textarea></label>"
+        "<label>Риски<textarea name=\"risk_flags\" rows=\"4\" placeholder=\"Каждый риск с новой строки\">{risks}</textarea></label>"
+        "<label>Что неизвестно<textarea name=\"missing_info\" rows=\"4\" placeholder=\"Каждый пробел с новой строки\">{missing}</textarea></label>"
+        "<label>Подтверждения<textarea name=\"source_snippets\" rows=\"4\" placeholder=\"Фрагменты утвержденных материалов\">{snippets}</textarea></label>"
+        "<button type=\"submit\">Сохранить описание</button>"
+        "</form>"
+        "<div class=\"toolbar\">"
+        "<form method=\"post\" action=\"/donors/{id}/status\">"
+        "<label>Статус <select name=\"status\">{status_options}</select></label>"
+        "<label>Проверка <select name=\"review_state\">{review_options}</select></label>"
+        "<button type=\"submit\">Сохранить состояние</button>"
+        "</form>"
+        "<form method=\"post\" action=\"/donors/{id}/owner\">"
+        "<label>Ответственный <input name=\"owner\" value=\"{owner}\" placeholder=\"Имя\"></label>"
+        "<button type=\"submit\">Назначить</button>"
+        "</form>"
+        "</div>"
+        "<form method=\"post\" action=\"/donors/{id}/note\">"
+        "<label>Заметка <textarea name=\"notes\" rows=\"4\" placeholder=\"Внутренний контекст, не для черновиков\">{notes}</textarea></label>"
+        "<button type=\"submit\">Сохранить заметку</button>"
+        "</form>"
+        "</section>"
+    ).format(
+        id=escape(campaign.id),
+        audience=escape(campaign.audience_description),
+        channel=escape(campaign.message_channel, quote=True),
+        key_message=escape(campaign.key_message),
+        impact=escape("\n".join(campaign.impact_points)),
+        risks=escape("\n".join(campaign.risk_flags)),
+        missing=escape("\n".join(campaign.missing_info)),
+        snippets=escape("\n".join(campaign.source_snippets)),
+        status_options=donor_campaign_status_options(campaign.status),
+        review_options=offer_review_options(campaign.review_state),
+        owner=escape(campaign.owner, quote=True),
+        notes=escape(campaign.notes),
+    )
+
+
 def render_analyze_form(opportunity_id: str) -> str:
     return (
         "<section>"
@@ -1185,6 +1326,14 @@ def offer_review_options(current: str) -> str:
         "needs_update": "Нужно обновить",
     }
     return "".join(option(value, label, current) for value, label in states.items())
+
+
+def donor_campaign_type_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in DONOR_CAMPAIGN_TYPES.items())
+
+
+def donor_campaign_status_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in DONOR_CAMPAIGN_STATUSES.items())
 
 
 def application_status_options(current: str) -> str:

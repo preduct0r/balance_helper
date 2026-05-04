@@ -121,6 +121,8 @@ Phase 4 now includes "Мероприятия": operators can run curated event s
 
 Phase 4 now includes "Блогеры": operators can run curated public-blog/community search, review `blogger` leads, paste public source text for local analysis, check ethics/reputation risks, and read a human-reviewed collaboration draft. The UI keeps the no-outreach boundary explicit: no messages, comments, emails, Telegram posts, private profile parsing, or use of beneficiary personal stories.
 
+Phase 4 now includes "Доноры": operators can create segment-level donor campaigns, review ethical risks, fill impact points, and read drafts for gratitude, impact digest, reactivation, or regular-donation explainers. The UI keeps donor work at the campaign/segment level: no personal donor data, no donor database import, no mailing, no payments, and no external sends.
+
 ## Engineering Implications
 
 - Keep service logic outside the UI so CLI, Telegram, and web screens reuse the same services.

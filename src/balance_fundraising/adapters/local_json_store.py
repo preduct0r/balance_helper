@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
+from balance_fundraising.domain import ActivityLogEntry, Application, DonorCampaign, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 
-TABLES = ["Opportunities", "Applications", "Leads", "ServiceOffers", "FundWiki", "Documents", "ActivityLog"]
+TABLES = ["Opportunities", "Applications", "Leads", "ServiceOffers", "DonorCampaigns", "FundWiki", "Documents", "ActivityLog"]
 
 DEFAULT_FUND_WIKI = [
     FundWikiEntry(
@@ -177,6 +177,37 @@ class LocalJsonStore:
             setattr(offer, key, value)
         self.upsert_service_offer(offer)
         return offer
+
+    def upsert_donor_campaign(self, campaign: DonorCampaign) -> None:
+        data = self._read_initialized()
+        rows = data["DonorCampaigns"]
+        payload = campaign.to_dict()
+        for index, row in enumerate(rows):
+            if row["id"] == campaign.id:
+                rows[index] = payload
+                break
+        else:
+            rows.append(payload)
+        self._write(data)
+
+    def get_donor_campaign(self, campaign_id: str) -> DonorCampaign:
+        for campaign in self.list_donor_campaigns():
+            if campaign.id == campaign_id:
+                return campaign
+        raise KeyError(f"Donor campaign not found: {campaign_id}")
+
+    def list_donor_campaigns(self) -> List[DonorCampaign]:
+        data = self._read_initialized()
+        return [DonorCampaign.from_dict(row) for row in data["DonorCampaigns"]]
+
+    def update_donor_campaign_fields(self, campaign_id: str, fields: Dict[str, object]) -> DonorCampaign:
+        campaign = self.get_donor_campaign(campaign_id)
+        for key, value in fields.items():
+            if key not in DonorCampaign.__dataclass_fields__:
+                raise KeyError(f"Unknown donor campaign field: {key}")
+            setattr(campaign, key, value)
+        self.upsert_donor_campaign(campaign)
+        return campaign
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         data = self._read_initialized()

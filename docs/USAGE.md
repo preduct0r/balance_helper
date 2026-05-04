@@ -271,6 +271,19 @@ PYTHONPATH=src python3 -m balance_fundraising.cli blogger-draft <lead_id>
 
 Blogger v1 works only with public pages/snippets and is без рассылок, личных сообщений, автокомментариев, private profile parsing, or external outreach. этический чек-лист must be reviewed by a human before any contact.
 
+Prepare private donor campaigns without personal donor data:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli donor-campaigns
+PYTHONPATH=src python3 -m balance_fundraising.cli donor-campaign-add --name "Майский дайджест" --type impact_digest --segment "регулярные доноры" --goal "Показать результаты месяца"
+PYTHONPATH=src python3 -m balance_fundraising.cli donor-campaign-show <campaign_id>
+PYTHONPATH=src python3 -m balance_fundraising.cli donor-campaign-status <campaign_id> ready_for_review
+PYTHONPATH=src python3 -m balance_fundraising.cli donor-campaign-note <campaign_id> "Проверено вручную"
+PYTHONPATH=src python3 -m balance_fundraising.cli donor-campaign-draft <campaign_id>
+```
+
+Donor v1 stores only segment-level campaign records. It is без персональных данных, без отправки сообщений, без рассылок, без donor CRM import, and without payments or analytics integrations.
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -322,6 +335,7 @@ The first web UI is local-only. It shows:
 - `Услуги` for paid service offers, materials, gaps, owner, and review state;
 - `Мероприятия` for NKO markets, charity fairs, event leads, practical checklists, and post-report notes;
 - `Блогеры` for public bloggers, тематические сообщества, ethics checks, reputation risks, and collaboration drafts;
+- `Доноры` for segment-level donor campaigns, gratitude, impact digest, reactivation, regular-donation explainer drafts, and no-personal-data review;
 - `Контакты и направления` for future B2B, paid services, events, bloggers, and donor campaign records;
 - opportunity list;
 - application list;
@@ -385,6 +399,18 @@ CLI equivalents are `event-radar`, `events`, `event-add`, `event-show`, and `eve
 8. Do not send messages, comments, emails, Telegram posts, or partnership proposals until a human checks facts, tone, ethics, and FundWiki references.
 
 CLI equivalents are `blogger-radar`, `bloggers`, `blogger-add`, `blogger-show`, `blogger-analyze`, `blogger-checklist`, and `blogger-draft`. Blogger v1 is без рассылок, без личных сообщений, без автокомментариев, без закрытого парсинга профилей, and without personal beneficiary stories.
+
+### Доноры: как подготовить бережную кампанию
+
+1. Open "Доноры".
+2. Add a campaign with type: gratitude, impact digest, reactivation, or regular donation explainer.
+3. Describe only a segment, for example "регулярные доноры" or "люди, давно не делавшие пожертвование"; do not paste names, email, phone numbers, diagnoses, or individual stories.
+4. Fill the goal, message channel, key message, impact points, and source snippets from approved fund facts.
+5. Check risk flags and missing info. `[НУЖНО УТОЧНИТЬ]` means the campaign is not ready for external use.
+6. Read `donor-campaign-draft` or the web draft only as preparation material.
+7. Human review is mandatory before any post, email, message, or donor communication outside the service.
+
+CLI equivalents are `donor-campaigns`, `donor-campaign-add`, `donor-campaign-show`, `donor-campaign-status`, `donor-campaign-note`, and `donor-campaign-draft`. Donor v1 is без персональных данных, без отправки сообщений, без рассылок, without donor database import, and without payment or CRM integrations.
 
 ### Контакты и направления
 
@@ -617,6 +643,7 @@ The production plan uses Google Sheets with these tabs:
 - `Applications`
 - `Leads`
 - `ServiceOffers`
+- `DonorCampaigns`
 - `FundWiki`
 - `Documents`
 - `ActivityLog`

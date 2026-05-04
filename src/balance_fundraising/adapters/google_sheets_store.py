@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 from balance_fundraising.adapters.local_json_store import DEFAULT_FUND_WIKI, TABLES
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
+from balance_fundraising.domain import ActivityLogEntry, Application, DonorCampaign, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 
 
 class GoogleSheetsStore:
@@ -105,6 +105,25 @@ class GoogleSheetsStore:
             setattr(offer, key, value)
         self.upsert_service_offer(offer)
         return offer
+
+    def upsert_donor_campaign(self, campaign: DonorCampaign) -> None:
+        self._upsert_row("DonorCampaigns", "id", campaign.to_dict())
+
+    def get_donor_campaign(self, campaign_id: str) -> DonorCampaign:
+        for campaign in self.list_donor_campaigns():
+            if campaign.id == campaign_id:
+                return campaign
+        raise KeyError(f"Donor campaign not found: {campaign_id}")
+
+    def list_donor_campaigns(self) -> List[DonorCampaign]:
+        return [DonorCampaign.from_dict(row) for row in self._records("DonorCampaigns") if row.get("id")]
+
+    def update_donor_campaign_fields(self, campaign_id: str, fields: Dict[str, object]) -> DonorCampaign:
+        campaign = self.get_donor_campaign(campaign_id)
+        for key, value in fields.items():
+            setattr(campaign, key, value)
+        self.upsert_donor_campaign(campaign)
+        return campaign
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         return [FundWikiEntry.from_dict(row) for row in self._records("FundWiki") if row.get("key")]

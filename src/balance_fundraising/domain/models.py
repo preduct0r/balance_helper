@@ -27,6 +27,11 @@ def service_offer_id_for_values(name: str, offer_type: str) -> str:
     return f"offer_{digest}"
 
 
+def donor_campaign_id_for_values(name: str, campaign_type: str, segment: str = "") -> str:
+    digest = hashlib.sha1(f"{campaign_type}|{segment}|{name}".encode("utf-8")).hexdigest()[:10]
+    return f"donor_{digest}"
+
+
 def activity_id_for_values(timestamp: str, action: str, entity_id: str, details: str) -> str:
     digest = hashlib.sha1(f"{timestamp}|{action}|{entity_id}|{details}".encode("utf-8")).hexdigest()[:10]
     return f"act_{digest}"
@@ -252,6 +257,66 @@ class ServiceOffer:
         values = dict(data)
         payload: Dict[str, Any] = {}
         list_fields = {"requirements", "materials_needed", "source_snippets", "missing_info"}
+        for field_name, field_info in cls.__dataclass_fields__.items():
+            if field_name not in values:
+                continue
+            value = values[field_name]
+            if field_name in list_fields:
+                value = _coerce_list(value)
+            if value is None and field_info.default is not MISSING:
+                continue
+            payload[field_name] = value
+        return cls(**payload)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class DonorCampaign:
+    id: str
+    name: str = "[НУЖНО УТОЧНИТЬ]"
+    campaign_type: str = "impact_digest"
+    segment: str = ""
+    goal: str = ""
+    audience_description: str = ""
+    status: str = "needs_review"
+    owner: str = ""
+    message_channel: str = ""
+    key_message: str = ""
+    impact_points: List[str] = field(default_factory=list)
+    risk_flags: List[str] = field(default_factory=list)
+    missing_info: List[str] = field(default_factory=list)
+    source_snippets: List[str] = field(default_factory=list)
+    notes: str = ""
+    review_state: str = "needs_review"
+    next_action: str = "Проверить кампанию человеком"
+
+    @classmethod
+    def from_values(
+        cls,
+        *,
+        name: str,
+        campaign_type: str,
+        segment: str,
+        goal: str = "",
+    ) -> "DonorCampaign":
+        safe_name = name or "[НУЖНО УТОЧНИТЬ]"
+        safe_type = campaign_type or "impact_digest"
+        safe_segment = segment or ""
+        return cls(
+            id=donor_campaign_id_for_values(safe_name, safe_type, safe_segment),
+            name=safe_name,
+            campaign_type=safe_type,
+            segment=safe_segment,
+            goal=goal,
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DonorCampaign":
+        values = dict(data)
+        payload: Dict[str, Any] = {}
+        list_fields = {"impact_points", "risk_flags", "missing_info", "source_snippets"}
         for field_name, field_info in cls.__dataclass_fields__.items():
             if field_name not in values:
                 continue

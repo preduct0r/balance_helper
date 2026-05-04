@@ -435,6 +435,57 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("HR-команды", show_text)
         self.assertIn("Корпоративная лекция", draft_text)
 
+    def test_cli_donor_campaign_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                add_code = cli_main(
+                    [
+                        "--store",
+                        str(store_path),
+                        "donor-campaign-add",
+                        "--name",
+                        "Майский дайджест",
+                        "--type",
+                        "impact_digest",
+                        "--segment",
+                        "регулярные доноры",
+                        "--goal",
+                        "Показать результаты месяца",
+                    ]
+                )
+            campaign_id = output.getvalue().strip()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status_code = cli_main(["--store", str(store_path), "donor-campaign-status", campaign_id, "ready_for_review"])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                note_code = cli_main(["--store", str(store_path), "donor-campaign-note", campaign_id, "Внутренняя заметка"])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                list_code = cli_main(["--store", str(store_path), "donor-campaigns"])
+            list_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                show_code = cli_main(["--store", str(store_path), "donor-campaign-show", campaign_id])
+            show_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                draft_code = cli_main(["--store", str(store_path), "donor-campaign-draft", campaign_id])
+            draft_text = output.getvalue()
+        self.assertEqual(add_code, 0)
+        self.assertEqual(status_code, 0)
+        self.assertEqual(note_code, 0)
+        self.assertEqual(list_code, 0)
+        self.assertEqual(show_code, 0)
+        self.assertEqual(draft_code, 0)
+        self.assertIn("Майский дайджест", list_text)
+        self.assertIn("регулярные доноры", show_text)
+        self.assertIn("Черновик донорской кампании", draft_text)
+        self.assertIn("Нужна ручная проверка", draft_text)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", draft_text)
+
 
 class FakeStore:
     def __init__(self) -> None:

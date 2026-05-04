@@ -11,6 +11,8 @@ from balance_fundraising.adapters.web_templates import (
     render_blogger_page,
     render_b2b_detail_page,
     render_b2b_page,
+    render_donor_campaign_detail_page,
+    render_donor_campaign_list_page,
     render_application_detail_page,
     render_applications_page,
     render_dashboard_page,
@@ -46,6 +48,15 @@ from balance_fundraising.services.applications import (
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService, sanitize_discovery_error
+from balance_fundraising.services.donors import (
+    build_donor_campaign_draft,
+    build_donor_campaign_readiness,
+    create_donor_campaign,
+    update_donor_campaign_details,
+    update_donor_campaign_note,
+    update_donor_campaign_owner,
+    update_donor_campaign_status,
+)
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.events import EventDiscoveryService, build_event_checklist, sanitize_event_error
 from balance_fundraising.services.bloggers import (
@@ -124,6 +135,13 @@ class WebApp:
             if "/" in lead_id or not lead_id:
                 return 404, render_not_found()
             return 200, render_blogger_detail(self.store, lead_id)
+        if route == "/donors":
+            return 200, render_donor_campaigns(self.store)
+        if route.startswith("/donors/"):
+            campaign_id = unquote(route.removeprefix("/donors/")).strip("/")
+            if "/" in campaign_id or not campaign_id:
+                return 404, render_not_found()
+            return 200, render_donor_campaign_detail(self.store, campaign_id)
         if route == "/leads":
             return 200, render_leads(self.store)
         if route.startswith("/leads/"):
@@ -249,6 +267,34 @@ class WebApp:
             else:
                 return 404, render_not_found()
             return 303, f"/bloggers/{lead_id}"
+        if route == "/donors":
+            campaign = create_donor_campaign(
+                self.store,
+                name=form.get("name", ""),
+                campaign_type=form.get("campaign_type", "impact_digest"),
+                segment=form.get("segment", ""),
+                goal=form.get("goal", ""),
+            )
+            return 303, f"/donors/{campaign.id}"
+        donor_action = _parse_donor_campaign_action(route)
+        if donor_action is not None:
+            campaign_id, action_name = donor_action
+            if action_name == "detail":
+                update_donor_campaign_from_form(self.store, campaign_id, form)
+            elif action_name == "status":
+                update_donor_campaign_status(
+                    self.store,
+                    campaign_id,
+                    status=form.get("status", "needs_review"),
+                    review_state=form.get("review_state", "needs_review"),
+                )
+            elif action_name == "owner":
+                update_donor_campaign_owner(self.store, campaign_id, form.get("owner", ""))
+            elif action_name == "note":
+                update_donor_campaign_note(self.store, campaign_id, form.get("notes", ""))
+            else:
+                return 404, render_not_found()
+            return 303, f"/donors/{campaign_id}"
         if route == "/leads":
             lead = create_lead(
                 self.store,
@@ -569,6 +615,10 @@ def render_offers(store) -> str:
     return render_service_offer_list_page(store.list_service_offers())
 
 
+def render_donor_campaigns(store) -> str:
+    return render_donor_campaign_list_page(store.list_donor_campaigns())
+
+
 def render_lead_detail(store, lead_id: str) -> str:
     try:
         lead = store.get_lead(lead_id)
@@ -634,6 +684,36 @@ def render_offer_detail(store, offer_id: str) -> str:
         offer=offer,
         draft=build_offer_description(offer, store.list_fund_wiki()),
         activity=activity,
+    )
+
+
+def render_donor_campaign_detail(store, campaign_id: str) -> str:
+    try:
+        campaign = store.get_donor_campaign(campaign_id)
+    except KeyError:
+        return render_not_found()
+    build_donor_campaign_readiness(campaign)
+    store.upsert_donor_campaign(campaign)
+    activity = [item for item in store.list_activity() if item.entity_id == campaign.id]
+    return render_donor_campaign_detail_page(
+        campaign=campaign,
+        draft=build_donor_campaign_draft(campaign, store.list_fund_wiki()),
+        ready=build_donor_campaign_readiness(campaign),
+        activity=activity,
+    )
+
+
+def update_donor_campaign_from_form(store, campaign_id: str, form: Dict[str, str]):
+    return update_donor_campaign_details(
+        store,
+        campaign_id,
+        audience_description=form.get("audience_description", ""),
+        message_channel=form.get("message_channel", ""),
+        key_message=form.get("key_message", ""),
+        impact_points=_lines(form.get("impact_points", "")),
+        risk_flags=_lines(form.get("risk_flags", "")),
+        missing_info=_lines(form.get("missing_info", "")),
+        source_snippets=_lines(form.get("source_snippets", "")),
     )
 
 
@@ -778,6 +858,19 @@ def _parse_blogger_action(route: str) -> Optional[tuple[str, str]]:
         return None
     _, lead_id, action = parts
     return unquote(lead_id), action
+
+
+def _parse_donor_campaign_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/donors/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) == 2:
+        _, campaign_id = parts
+        return unquote(campaign_id), "detail"
+    if len(parts) != 3:
+        return None
+    _, campaign_id, action = parts
+    return unquote(campaign_id), action
 
 
 def _parse_application_action(route: str) -> Optional[tuple[str, str]]:
