@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+import tempfile
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from balance_fundraising.adapters.local_json_store import LocalJsonStore
+from balance_fundraising.adapters.web import WebApp, add_opportunity, analyze_opportunity, render_dashboard, render_opportunity_detail
+from balance_fundraising.domain import Opportunity
+
+
+class WebUiTests(unittest.TestCase):
+    def test_dashboard_renderer_shows_urgent_and_missing_deadlines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            overdue = Opportunity.from_url("https://old.example")
+            overdue.name = "Старый дедлайн"
+            overdue.deadline = "2026-04-12"
+            overdue.next_action = "Проверить новое окно"
+            missing = Opportunity.from_url("https://missing.example")
+            missing.name = "Без дедлайна"
+            store.upsert_opportunity(overdue)
+            store.upsert_opportunity(missing)
+            html = render_dashboard(store)
+        self.assertIn("Сегодня важно", html)
+        self.assertIn("Старый дедлайн", html)
+        self.assertIn("Без дедлайна", html)
+        self.assertIn("Дедлайн нужно уточнить", html)
+
+    def test_opportunity_detail_renderer_includes_review_materials(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = Opportunity.from_url("https://example.org")
+            opportunity.name = "Тестовая возможность"
+            opportunity.eligibility = ["НКО"]
+            opportunity.required_documents = ["Устав фонда"]
+            opportunity.missing_info = ["Проверить дедлайн"]
+            opportunity.source_snippets = ["Нужны устав и отчетность"]
+            store.upsert_opportunity(opportunity)
+            html = render_opportunity_detail(store, opportunity.id)
+        self.assertIn("Чек-лист", html)
+        self.assertIn("Черновик", html)
+        self.assertIn("Проверить дедлайн", html)
+        self.assertIn("Нужны устав и отчетность", html)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", html)
+
+    def test_add_link_handler_creates_opportunity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store)
+            status, location = app.post("/opportunities", {"url": "https://example.org/new"})
+            opportunity_id = location.rsplit("/", 1)[-1]
+        self.assertEqual(status, 303)
+        self.assertTrue(opportunity_id.startswith("opp_"))
+
+    def test_analyze_handler_updates_opportunity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = add_opportunity(store, "https://example.org/new")
+            app = WebApp(store)
+            status, location = app.post(
+                f"/opportunities/{opportunity.id}/analyze",
+                {"source_text": "НКО и благотворительные фонды могут подать заявку. Нужны устав и отчетность."},
+            )
+            updated = store.get_opportunity(opportunity.id)
+        self.assertEqual(status, 303)
+        self.assertEqual(location, f"/opportunities/{opportunity.id}")
+        self.assertEqual(updated.status, "needs_review")
+        self.assertIn("Устав фонда", updated.required_documents)
+
+    def test_render_route_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store)
+            self.assertEqual(app.render("/")[0], 200)
+            status, location = app.post("/opportunities", {"url": "https://example.org/new"})
+            opportunity_id = location.rsplit("/", 1)[-1]
+            self.assertEqual(status, 303)
+            self.assertEqual(app.render(f"/opportunities/{opportunity_id}")[0], 200)
+            app.post(f"/opportunities/{opportunity_id}/analyze", {"source_text": "НКО. Нужна отчетность."})
+            detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
+        self.assertEqual(detail_status, 200)
+        self.assertIn("Отчетность фонда", detail_html)
+
+
+if __name__ == "__main__":
+    unittest.main()
+

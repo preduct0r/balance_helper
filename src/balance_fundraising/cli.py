@@ -6,6 +6,7 @@ from pathlib import Path
 
 from balance_fundraising.adapters.store_factory import build_store_config, create_store
 from balance_fundraising.adapters.telegram_bot import TelegramCommandHandler, run_polling_bot
+from balance_fundraising.adapters.web import run_web_server
 from balance_fundraising.app_defaults import DEFAULT_STORE_PATH
 from balance_fundraising.clients.yandex_llm import YandexLLMClient
 from balance_fundraising.clients.yandex_search import YandexSearchClient
@@ -46,6 +47,10 @@ def main(argv: list[str] | None = None) -> int:
     draft.add_argument("opportunity_id")
 
     subparsers.add_parser("bot")
+
+    web = subparsers.add_parser("web")
+    web.add_argument("--host", default=os.getenv("BALANCE_WEB_HOST", "127.0.0.1"))
+    web.add_argument("--port", type=int, default=int(os.getenv("BALANCE_WEB_PORT", "8080")))
 
     args = parser.parse_args(argv)
     store_config = build_store_config(backend=args.store_backend, local_path=args.store)
@@ -96,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
         if not token:
             raise RuntimeError("Set TELEGRAM_BOT_TOKEN to run the bot.")
         run_polling_bot(token, TelegramCommandHandler(store))
+        return 0
+    if args.command == "web":
+        run_web_server(store, host=args.host, port=args.port)
         return 0
     parser.error("Unknown command")
     return 2

@@ -96,5 +96,18 @@
       "docs/UI_STRATEGY.md ties the first web UI slice to the same operator workflow."
     ],
     "passes": true
+  },
+  {
+    "id": "local-web-ui",
+    "priority": 1,
+    "description": "Local server-rendered web UI exposes the first non-IT operator workflow without external sends.",
+    "acceptance_steps": [
+      "CLI supports web with --host and --port plus BALANCE_WEB_HOST and BALANCE_WEB_PORT.",
+      "Web UI renders dashboard, opportunity list, opportunity detail, checklist, draft, and local analysis form.",
+      "POST handlers add links and run heuristic analysis through existing services.",
+      "README, docs/USAGE.md, and docs/UI_STRATEGY.md document the local web UI.",
+      "scripts/dev_check.py includes a web render smoke check."
+    ],
+    "passes": true
   }
 ]

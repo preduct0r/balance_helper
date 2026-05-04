@@ -15,6 +15,7 @@ def main() -> int:
         check_docs_links,
         run_tests,
         run_operator_smoke,
+        run_web_render_smoke,
         run_cli_smoke,
     ]
     for check in checks:
@@ -59,6 +60,11 @@ def run_cli_smoke() -> None:
 def run_operator_smoke() -> None:
     env = _env()
     subprocess.run([sys.executable, "scripts/smoke_operator_workflow.py"], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
+
+
+def run_web_render_smoke() -> None:
+    env = _env()
+    subprocess.run([sys.executable, "scripts/smoke_web_render.py"], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
 
 
 def _env() -> dict[str, str]:

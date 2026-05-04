@@ -85,9 +85,9 @@ CLI and Telegram remain useful for operators, but the non-IT user should be able
 
 Use Google Sheets and Telegram while the workflow is still being validated. Keep field names and statuses close to the future UI so migration is straightforward.
 
-### UI Phase 1: Read-Only Web View
+### UI Phase 1: Local Web Dashboard
 
-Add a simple web dashboard that reads from the same store and shows opportunities, deadlines, and checklists. No editing yet except local development fixtures.
+Add a simple local web dashboard that reads from the same store and shows opportunities, deadlines, checklists, and drafts. It may add links and run local heuristic analysis, but it must not send external messages or approve facts.
 
 ### UI Phase 2: Review And Edit
 

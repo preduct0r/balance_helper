@@ -23,6 +23,7 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - [x] Add offline operator smoke workflow.
 - [x] Add operator recipes for non-IT usage.
 - [x] Tie the first future UI slice to the same operator workflow.
+- [x] Add first local web UI for the operator workflow.
 
 ## Done Means
 
@@ -31,3 +32,4 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - Feature list is valid JSON.
 - `scripts/yandex_llm_example.py` can import its helper modules.
 - `scripts/smoke_operator_workflow.py` completes without external services.
+- `scripts/smoke_web_render.py` completes without external services.

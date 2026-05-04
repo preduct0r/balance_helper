@@ -41,6 +41,8 @@ BALANCE_STORE_BACKEND=local
 GOOGLE_SHEET_ID=...
 GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
 TELEGRAM_BOT_TOKEN=...
+BALANCE_WEB_HOST=127.0.0.1
+BALANCE_WEB_PORT=8080
 ```
 
 ## 3. Local JSON Store
@@ -139,7 +141,45 @@ PYTHONPATH=src python3 scripts/smoke_operator_workflow.py
 
 It creates a temporary local store, adds a test link, analyzes a fixture, prints a checklist, prints a draft, and prints a digest.
 
-## 6. Operator Recipes
+## 6. Local Web UI
+
+Start the local web interface:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli web
+```
+
+Open:
+
+```text
+http://127.0.0.1:8080
+```
+
+Choose host and port:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli web --host 127.0.0.1 --port 8080
+```
+
+Or set defaults:
+
+```bash
+BALANCE_WEB_HOST=127.0.0.1
+BALANCE_WEB_PORT=8080
+```
+
+The first web UI is local-only. It shows:
+
+- dashboard with urgent actions and missing deadlines;
+- opportunity list;
+- opportunity detail;
+- checklist;
+- draft;
+- local heuristic analysis from pasted text or the source URL.
+
+It does not send applications, emails, reports, or partner messages.
+
+## 7. Operator Recipes
 
 ### Я нашла ссылку, что делать?
 
@@ -196,7 +236,7 @@ The draft uses only `FundWiki` facts. It is not ready for external use until a h
 
 Treat it as a task, not an error. Check the source page, update `FundWiki` or the opportunity record, and regenerate the checklist or draft.
 
-## 7. Discovery Workflow
+## 8. Discovery Workflow
 
 Run Yandex Search discovery:
 
@@ -206,7 +246,7 @@ PYTHONPATH=src python3 -m balance_fundraising.cli discover
 
 Discovery uses the configured Yandex Search API and creates reviewable opportunity records. Newly discovered records are not treated as approved facts. A human must review them before external action.
 
-## 8. Telegram Bot
+## 9. Telegram Bot
 
 Set the bot token:
 
@@ -230,7 +270,7 @@ Supported commands:
 
 The bot command handlers are testable without Telegram. The polling runner requires the optional `python-telegram-bot` dependency.
 
-## 9. Google Sheets Store
+## 10. Google Sheets Store
 
 The production plan uses Google Sheets with these tabs:
 
@@ -256,7 +296,7 @@ python -m pip install '.[google]'
 
 The local JSON store remains the required path for tests and offline development.
 
-## 10. Human Review Boundary
+## 11. Human Review Boundary
 
 The service never sends applications, emails, reports, or partner messages by itself. Generated checklists and drafts are working materials.
 
@@ -268,7 +308,7 @@ Before using generated text externally, a human must check:
 - consistency with `FundWiki`;
 - absence of personal beneficiary data.
 
-## 11. Updating This Guide
+## 12. Updating This Guide
 
 When a developer or agent changes service usage, update this file in the same change. This includes:
 

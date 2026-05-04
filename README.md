@@ -25,6 +25,7 @@ python -m pip install -r requirements-dev.txt
 PYTHONPATH=src python -m balance_fundraising.cli init-store
 PYTHONPATH=src python -m balance_fundraising.cli digest
 PYTHONPATH=src python -m balance_fundraising.cli doctor
+PYTHONPATH=src python -m balance_fundraising.cli web
 PYTHONPATH=src python scripts/dev_check.py
 ```
 
@@ -48,6 +49,8 @@ For detailed operator-facing usage instructions, see `docs/USAGE.md`.
 - `GOOGLE_SHEET_ID`: Google Sheet id for the production store.
 - `GOOGLE_SERVICE_ACCOUNT_FILE`: service account JSON file for Google Sheets.
 - `TELEGRAM_BOT_TOKEN`: token for running the Telegram bot.
+- `BALANCE_WEB_HOST`: optional local web host. Defaults to `127.0.0.1`.
+- `BALANCE_WEB_PORT`: optional local web port. Defaults to `8080`.
 
 ## CLI
 
@@ -61,6 +64,8 @@ PYTHONPATH=src python -m balance_fundraising.cli checklist <opportunity_id>
 PYTHONPATH=src python -m balance_fundraising.cli draft <opportunity_id>
 PYTHONPATH=src python -m balance_fundraising.cli digest
 PYTHONPATH=src python -m balance_fundraising.cli bot
+PYTHONPATH=src python -m balance_fundraising.cli web
+PYTHONPATH=src python -m balance_fundraising.cli web --host 127.0.0.1 --port 8080
 ```
 
 Use `--store-backend local|google` before the command to choose storage for that run.
@@ -76,6 +81,16 @@ Use `--store-backend local|google` before the command to choose storage for that
 - `/status <id> <status>`
 
 The current bot adapter exposes testable command handlers and an optional polling runner when `python-telegram-bot` is installed.
+
+## Local Web UI
+
+Run:
+
+```bash
+PYTHONPATH=src python -m balance_fundraising.cli web
+```
+
+Open `http://127.0.0.1:8080`. The first web UI is local-only and shows the same operator workflow as CLI: dashboard, opportunity list, opportunity detail, checklist, draft, and local heuristic analysis.
 
 ## Human Review Boundary
 
