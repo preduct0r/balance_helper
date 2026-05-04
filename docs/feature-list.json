@@ -251,7 +251,7 @@
       "Review queue uses consistent human-review boundaries.",
       "Digest remains deterministic in tests."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "final-validation-and-hardening",

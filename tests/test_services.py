@@ -62,6 +62,7 @@ from balance_fundraising.services.offers import (
     update_service_offer_owner,
     update_service_offer_status,
 )
+from balance_fundraising.services.operator_dashboard import build_operator_work_items
 from balance_fundraising.services.readiness import build_readiness
 
 
@@ -464,6 +465,58 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("нет ответственного", digest)
         self.assertIn("проверка просрочена", digest)
         self.assertIn("дедлайн 2026-05-01", digest)
+
+    def test_operator_work_items_cover_all_modules(self) -> None:
+        opportunity = Opportunity.from_url("https://platform.example")
+        opportunity.name = "Платформа"
+        opportunity.deadline = "2026-04-12"
+        opportunity.missing_info = ["Уточнить документы"]
+        application = Application(id="app_1", opportunity_id=opportunity.id, status="waiting_response", response_due_at="2026-05-01")
+        lead = FundraisingLead.from_values(category="blogger", name="Блог", url="https://blog.example")
+        lead.recheck_at = "2026-04-20"
+        lead.risk_flags = ["Проверить репутацию"]
+        offer = ServiceOffer.from_values(name="Лекция", offer_type="corporate_lecture")
+        offer.missing_info = ["Уточнить материалы"]
+        donor = DonorCampaign.from_values(name="Дайджест", campaign_type="impact_digest", segment="регулярные доноры")
+        donor.risk_flags = ["Проверить отсутствие давления"]
+        items = build_operator_work_items(
+            [opportunity],
+            applications=[application],
+            leads=[lead],
+            service_offers=[offer],
+            donor_campaigns=[donor],
+            today=date(2026, 4, 26),
+        )
+        urls = {item.url for item in items}
+        reasons = " ".join(item.reason for item in items)
+        severities = {item.severity for item in items}
+        self.assertIn(f"/opportunities/{opportunity.id}", urls)
+        self.assertIn("/applications/app_1", urls)
+        self.assertIn(f"/bloggers/{lead.id}", urls)
+        self.assertIn(f"/offers/{offer.id}", urls)
+        self.assertIn(f"/donors/{donor.id}", urls)
+        self.assertIn("просрочено", reasons)
+        self.assertIn("нет ответственного", reasons)
+        self.assertIn("Проверить репутацию", reasons)
+        self.assertIn("Уточнить материалы", reasons)
+        self.assertIn("Проверить отсутствие давления", reasons)
+        self.assertIn("urgent", severities)
+        self.assertIn("owner", severities)
+        self.assertIn("review", severities)
+        self.assertIn("gap", severities)
+
+    def test_digest_includes_offers_and_donor_campaigns(self) -> None:
+        offer = ServiceOffer.from_values(name="Лекция", offer_type="corporate_lecture")
+        offer.missing_info = ["Уточнить цену"]
+        donor = DonorCampaign.from_values(name="Дайджест", campaign_type="impact_digest", segment="регулярные доноры")
+        donor.risk_flags = ["Проверить тон"]
+        digest = build_digest([], service_offers=[offer], donor_campaigns=[donor], today=date(2026, 4, 26))
+        self.assertIn(offer.id, digest)
+        self.assertIn(donor.id, digest)
+        self.assertIn("нет ответственного", digest)
+        self.assertIn("нужна проверка", digest)
+        self.assertIn("Уточнить цену", digest)
+        self.assertIn("Проверить тон", digest)
 
     def test_b2b_radar_creates_b2b_leads_and_deduplicates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -113,6 +113,17 @@ def main() -> int:
         )
         offer_id = offer_location.rsplit("/", 1)[-1]
         app.post(f"/offers/{offer_id}/status", {"status": "approved", "review_state": "approved"})
+        review_offer_status, review_offer_location = app.post(
+            "/offers",
+            {
+                "name": "Услуга на проверке",
+                "offer_type": "wellbeing_workshop",
+                "audience": "HR-команды",
+                "format": "Онлайн",
+            },
+        )
+        review_offer_id = review_offer_location.rsplit("/", 1)[-1]
+        app.post(f"/offers/{review_offer_id}", {"missing_info": "Уточнить материалы"})
         app.post("/events/radar/run", {"query": "НКО маркет", "limit": "5"})
         event_lead = [item for item in store.list_leads() if item.url == "https://example.org/event"][0]
         app.post(f"/events/{event_lead.id}/owner", {"owner": "Оператор"})
@@ -174,6 +185,7 @@ def main() -> int:
     assert b2b_status == 200
     assert b2b_detail_status == 200
     assert offer_status == 303
+    assert review_offer_status == 303
     assert offers_status == 200
     assert offer_detail_status == 200
     assert events_status == 200
@@ -192,6 +204,10 @@ def main() -> int:
     assert wiki_status == 200
     assert detail_status == 200
     assert "Рабочий стол фандрайзинга" in root_html
+    assert "По направлениям" in root_html
+    assert "Без ответственного" in root_html
+    assert "Пробелы и риски" in root_html
+    assert "Доноры" in root_html
     assert "Радар" in radar_html
     assert "Радарная находка" in radar_html
     assert "B2B" in b2b_html
@@ -222,6 +238,8 @@ def main() -> int:
     assert "Первый прогон" in first_run_html
     assert "Журнал наблюдений" in first_run_html
     assert "Очередь проверки" in review_html
+    assert "Услуга на проверке" in review_html
+    assert "Майский impact digest" in review_html
     assert "Паспорт фонда" in wiki_html
     assert "Заявка" in detail_html
     assert "Человек уже подал заявку" in detail_html

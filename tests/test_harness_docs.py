@@ -62,6 +62,12 @@ class HarnessDocsTests(unittest.TestCase):
             "donor-campaign-draft",
         ]:
             self.assertIn(command, readme)
+        for phrase in [
+            "cross-agent dashboard",
+            "unified review queue",
+            "all implemented modules",
+        ]:
+            self.assertIn(phrase, readme)
         for env in [
             "YANDEX_API_KEY",
             "YANDEX_FOLDER_ID",
@@ -196,6 +202,9 @@ class HarnessDocsTests(unittest.TestCase):
             "donor-campaign-draft",
             "без персональных данных",
             "без отправки сообщений",
+            "единый рабочий стол",
+            "cross-agent digest",
+            "общая очередь проверки",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

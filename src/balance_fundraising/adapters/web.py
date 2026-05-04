@@ -77,6 +77,7 @@ from balance_fundraising.services.offers import (
     update_service_offer_owner,
     update_service_offer_status,
 )
+from balance_fundraising.services.operator_dashboard import build_operator_work_items, section_counts
 from balance_fundraising.services.readiness import build_readiness
 
 
@@ -476,6 +477,17 @@ def add_operator_feedback(store, feedback: str) -> None:
 
 def render_dashboard(store) -> str:
     opportunities = store.list_opportunities()
+    applications = store.list_applications()
+    leads = store.list_leads()
+    service_offers = store.list_service_offers()
+    donor_campaigns = store.list_donor_campaigns()
+    work_items = build_operator_work_items(
+        opportunities,
+        applications=applications,
+        leads=leads,
+        service_offers=service_offers,
+        donor_campaigns=donor_campaigns,
+    )
     missing_deadlines = [item for item in opportunities if not item.deadline]
     needs_review = review_queue_items(opportunities)
     drafts_with_gaps = [item for item in opportunities if item.missing_info or not item.deadline]
@@ -483,7 +495,21 @@ def render_dashboard(store) -> str:
         needs_review=needs_review,
         missing_deadlines=missing_deadlines,
         drafts_with_gaps=drafts_with_gaps,
-        digest_text=build_digest(opportunities, applications=store.list_applications(), leads=store.list_leads()),
+        digest_text=build_digest(
+            opportunities,
+            applications=applications,
+            leads=leads,
+            service_offers=service_offers,
+            donor_campaigns=donor_campaigns,
+        ),
+        work_items=work_items,
+        direction_counts=section_counts(
+            opportunities=opportunities,
+            applications=applications,
+            leads=leads,
+            service_offers=service_offers,
+            donor_campaigns=donor_campaigns,
+        ),
     )
 
 
@@ -747,9 +773,20 @@ def render_application_detail(store, application_id: str) -> str:
 
 
 def render_review_queue(store) -> str:
-    opportunities = review_queue_items(store.list_opportunities())
-    leads = lead_review_queue_items(store.list_leads())
-    return render_review_queue_page(opportunities, leads)
+    opportunities = store.list_opportunities()
+    leads = store.list_leads()
+    work_items = [
+        item
+        for item in build_operator_work_items(
+            opportunities,
+            applications=store.list_applications(),
+            leads=leads,
+            service_offers=store.list_service_offers(),
+            donor_campaigns=store.list_donor_campaigns(),
+        )
+        if item.severity in {"review", "gap"}
+    ]
+    return render_review_queue_page(review_queue_items(opportunities), lead_review_queue_items(leads), work_items=work_items)
 
 
 def render_fund_wiki(store) -> str:

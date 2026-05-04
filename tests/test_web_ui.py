@@ -34,7 +34,7 @@ from balance_fundraising.adapters.web import (
     render_review_queue,
 )
 from balance_fundraising.clients.yandex_search import SearchResult
-from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
+from balance_fundraising.domain import ActivityLogEntry, Application, DonorCampaign, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 
 
 class WebUiTests(unittest.TestCase):
@@ -132,6 +132,40 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("Очередь проверки", html)
         self.assertIn("Нужно проверить", html)
         self.assertNotIn("Уже проверено", html)
+
+    def test_cross_agent_dashboard_and_review_include_offers_and_donors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = Opportunity.from_url("https://platform.example")
+            opportunity.name = "Платформа со сроком"
+            opportunity.deadline = "2026-04-12"
+            store.upsert_opportunity(opportunity)
+            application = Application(id="app_cross", opportunity_id=opportunity.id, status="waiting_response")
+            store.upsert_application(application)
+            lead = FundraisingLead.from_values(category="b2b", name="B2B без ответственного", url="https://b2b.example")
+            lead.missing_info = ["Уточнить контакт"]
+            store.upsert_lead(lead)
+            offer = ServiceOffer.from_values(name="Услуга без владельца", offer_type="corporate_lecture")
+            offer.missing_info = ["Уточнить материалы"]
+            store.upsert_service_offer(offer)
+            donor = DonorCampaign.from_values(name="Донорский дайджест", campaign_type="impact_digest", segment="регулярные доноры")
+            donor.risk_flags = ["Проверить тон без давления"]
+            store.upsert_donor_campaign(donor)
+            dashboard_html = render_dashboard(store)
+            review_html = render_review_queue(store)
+        self.assertIn("По направлениям", dashboard_html)
+        self.assertIn("Без ответственного", dashboard_html)
+        self.assertIn("Пробелы и риски", dashboard_html)
+        self.assertIn("Платформы", dashboard_html)
+        self.assertIn("Услуги", dashboard_html)
+        self.assertIn("Доноры", dashboard_html)
+        self.assertIn("Услуга без владельца", dashboard_html)
+        self.assertIn("Донорский дайджест", dashboard_html)
+        self.assertIn(f"/offers/{offer.id}", review_html)
+        self.assertIn(f"/donors/{donor.id}", review_html)
+        self.assertIn("Услуга без владельца", review_html)
+        self.assertIn("Донорский дайджест", review_html)
 
     def test_leads_list_detail_and_safe_actions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

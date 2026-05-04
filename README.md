@@ -16,6 +16,8 @@ The MVP is the first slice of a broader fundraising operating system for the fun
 
 The primary operator may be far from IT, so UI evolution is tracked separately in `docs/UI_STRATEGY.md`. The intended interface is a calm fundraising workspace with dashboards, review queues, opportunity cards, checklists, and editable drafts, not a technical control panel.
 
+The current home page is a cross-agent dashboard: it combines urgent dates, missing owners, review items, gaps, and risks from all implemented modules. The `/review` page is a unified review queue across platforms, applications, leads, offers, events, bloggers, and donor campaigns.
+
 ## Quick Start
 
 ```bash
@@ -111,6 +113,8 @@ Use `--store-backend local|google` before the command to choose storage for that
 
 `analyze` can run without an LLM in deterministic heuristic mode. Set `--use-llm` to call Yandex LLM.
 
+`digest` is cross-agent: it includes all implemented modules that have deadlines, missing owners, review states, missing facts, or risks.
+
 ## Telegram Commands
 
 - `/digest`
@@ -129,7 +133,7 @@ Run:
 PYTHONPATH=src python -m balance_fundraising.cli web
 ```
 
-Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, radar, B2B workspace, `Услуги`, `Мероприятия`, `Блогеры`, `Доноры`, review queue, opportunity list, application list and detail pages, `Контакты и направления`, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In B2B, an operator can search company leads, analyze pasted source text, and review a draft first-contact letter and one-pager with approved service offers. In `Услуги`, an operator can keep internal paid-service descriptions, gaps, materials, owner, notes, and review state. In `Мероприятия`, an operator can search NKO markets and charity fairs, open event cards, and use a practical checklist for deadline, fee, documents, materials, volunteer shifts, logistics, and post-report notes without inventory, payments, or external sends. In `Блогеры`, an operator can search public blogs and communities, run an ethics checklist, review reputation risks, and prepare human-reviewed collaboration drafts without outreach automation. In `Доноры`, an operator can create segment-level private donor campaigns, prepare gratitude, impact digest, reactivation, or regular-donation explainer drafts, and keep the no-send/no-personal-data boundary visible. In the opportunity, application, lead, offer, event, blogger, and donor campaign cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
+Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: cross-agent dashboard, radar, B2B workspace, `Услуги`, `Мероприятия`, `Блогеры`, `Доноры`, unified review queue, opportunity list, application list and detail pages, `Контакты и направления`, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In B2B, an operator can search company leads, analyze pasted source text, and review a draft first-contact letter and one-pager with approved service offers. In `Услуги`, an operator can keep internal paid-service descriptions, gaps, materials, owner, notes, and review state. In `Мероприятия`, an operator can search NKO markets and charity fairs, open event cards, and use a practical checklist for deadline, fee, documents, materials, volunteer shifts, logistics, and post-report notes without inventory, payments, or external sends. In `Блогеры`, an operator can search public blogs and communities, run an ethics checklist, review reputation risks, and prepare human-reviewed collaboration drafts without outreach automation. In `Доноры`, an operator can create segment-level private donor campaigns, prepare gratitude, impact digest, reactivation, or regular-donation explainer drafts, and keep the no-send/no-personal-data boundary visible. In the opportunity, application, lead, offer, event, blogger, and donor campaign cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
 
 Use `seed-demo` in local mode to create a training dataset for a non-IT operator. It adds demo opportunities and one starter application record; it does not call Yandex, Google, Telegram, or partner services.
 

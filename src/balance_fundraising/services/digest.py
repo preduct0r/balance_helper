@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Iterable, List
 
-from balance_fundraising.domain import Application, FundraisingLead, Opportunity
+from balance_fundraising.domain import Application, DonorCampaign, FundraisingLead, Opportunity, ServiceOffer
 
 
 def build_digest(
@@ -11,6 +11,8 @@ def build_digest(
     *,
     applications: Iterable[Application] | None = None,
     leads: Iterable[FundraisingLead] | None = None,
+    service_offers: Iterable[ServiceOffer] | None = None,
+    donor_campaigns: Iterable[DonorCampaign] | None = None,
     today: date | None = None,
     horizon_days: int = 14,
 ) -> str:
@@ -26,6 +28,12 @@ def build_digest(
             urgent.append(line)
     for lead in sorted(leads or [], key=lambda item: (_deadline_sort_key(_lead_sort_date(item)), item.name)):
         for line in _lead_digest_lines(lead, current, horizon_days):
+            urgent.append(line)
+    for offer in sorted(service_offers or [], key=lambda item: item.name):
+        for line in _offer_digest_lines(offer):
+            urgent.append(line)
+    for campaign in sorted(donor_campaigns or [], key=lambda item: item.name):
+        for line in _donor_campaign_digest_lines(campaign):
             urgent.append(line)
     if not urgent:
         return "Срочных действий нет."
@@ -94,4 +102,27 @@ def _lead_digest_lines(lead: FundraisingLead, today: date, horizon_days: int) ->
             lines.append(f"- {lead.id}: {prefix} {lead.recheck_at}; {lead.next_action}")
     if lead.confidence and lead.confidence < 0.4:
         lines.append(f"- {lead.id}: низкая уверенность; проверить источники")
+    return lines
+
+
+def _offer_digest_lines(offer: ServiceOffer) -> List[str]:
+    lines = []
+    if offer.status not in {"approved", "archived"} and not offer.owner:
+        lines.append(f"- {offer.id}: нет ответственного; Проверить услугу")
+    if offer.status != "approved" and offer.review_state != "approved":
+        lines.append(f"- {offer.id}: нужна проверка; Проверить описание услуги")
+    if offer.missing_info:
+        lines.append(f"- {offer.id}: {'; '.join(offer.missing_info)}; Заполнить пробелы услуги")
+    return lines
+
+
+def _donor_campaign_digest_lines(campaign: DonorCampaign) -> List[str]:
+    lines = []
+    if campaign.status not in {"approved", "archived"} and not campaign.owner:
+        lines.append(f"- {campaign.id}: нет ответственного; {campaign.next_action}")
+    if campaign.status != "approved" and campaign.review_state != "approved":
+        lines.append(f"- {campaign.id}: нужна проверка; {campaign.next_action}")
+    risks_and_gaps = list(campaign.missing_info) + list(campaign.risk_flags)
+    if risks_and_gaps:
+        lines.append(f"- {campaign.id}: {'; '.join(risks_and_gaps)}; Проверить донорскую кампанию")
     return lines

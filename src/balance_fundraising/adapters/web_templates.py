@@ -21,6 +21,7 @@ from balance_fundraising.services.donors import (
     donor_campaign_status_label,
     donor_campaign_type_label,
 )
+from balance_fundraising.services.operator_dashboard import OperatorWorkItem
 from balance_fundraising.services.readiness import ReadinessReport
 
 STATUS_LABELS = {
@@ -81,22 +82,51 @@ def render_dashboard_page(
     missing_deadlines: Iterable[Opportunity],
     drafts_with_gaps: Iterable[Opportunity],
     digest_text: str,
+    work_items: Iterable[OperatorWorkItem] = (),
+    direction_counts: dict[str, int] | None = None,
 ) -> str:
     needs_review_rows = list(needs_review)
     missing_deadline_rows = list(missing_deadlines)
     drafts_with_gap_rows = list(drafts_with_gaps)
+    all_work_items = list(work_items)
+    urgent_items = [item for item in all_work_items if item.severity == "urgent"]
+    owner_items = [item for item in all_work_items if item.severity == "owner"]
+    review_items = [item for item in all_work_items if item.severity == "review"]
+    gap_items = [item for item in all_work_items if item.severity == "gap"]
     body = [
         "<div class=\"grid\">",
-        summary_card("Нужно проверить", len(needs_review_rows), "Новые находки и разборы после ИИ"),
-        summary_card("Дедлайн неизвестен", len(missing_deadline_rows), "Записи, где нужно уточнить срок"),
-        summary_card("Черновики с пробелами", len(drafts_with_gap_rows), "Тексты требуют ручной доработки"),
+        summary_card("Сегодня важно", len(urgent_items), "Просроченные и ближайшие сроки"),
+        summary_card("Без ответственного", len(owner_items), "Работа, которую нужно кому-то назначить"),
+        summary_card("Нужно проверить", len(review_items), "Черновики, факты и записи на ручной проверке"),
+        summary_card("Пробелы и риски", len(gap_items), "Неизвестные факты, низкая уверенность и риски"),
         "</div>",
         "<section>",
         "<h2>Сегодня важно</h2>",
         f"<pre>{escape(digest_text)}</pre>",
+        render_work_item_table(urgent_items, empty_text="Срочных дат по всем направлениям нет."),
+        "</section>",
+        "<section>",
+        "<h2>Без ответственного</h2>",
+        render_work_item_table(owner_items, empty_text="Нет активных записей без ответственного."),
         "</section>",
         "<section>",
         "<h2>Нужно проверить</h2>",
+        render_work_item_table(review_items, empty_text="Очередь проверки пуста."),
+        "</section>",
+        "<section>",
+        "<h2>Пробелы и риски</h2>",
+        render_work_item_table(gap_items, empty_text="Нет отмеченных пробелов и рисков."),
+        "</section>",
+        "<section>",
+        "<h2>Черновики с пробелами</h2>",
+        render_opportunity_table(drafts_with_gap_rows, empty_text="Черновиков с пробелами нет."),
+        "</section>",
+        "<section>",
+        "<h2>По направлениям</h2>",
+        render_direction_counts(direction_counts or {}),
+        "</section>",
+        "<section>",
+        "<h2>Площадки на проверке</h2>",
         render_opportunity_table(needs_review_rows, empty_text="Очередь проверки пуста."),
         "</section>",
         "<section>",
@@ -307,11 +337,19 @@ def render_blogger_page(
     return render_layout("Блогеры", "\n".join(body))
 
 
-def render_review_queue_page(opportunities: Iterable[Opportunity], leads: Iterable[FundraisingLead] = ()) -> str:
+def render_review_queue_page(
+    opportunities: Iterable[Opportunity],
+    leads: Iterable[FundraisingLead] = (),
+    *,
+    work_items: Iterable[OperatorWorkItem] = (),
+) -> str:
+    items = list(work_items)
     body = [
         "<section>",
         "<h2>Очередь проверки</h2>",
         "<p class=\"muted\">Здесь собраны новые находки, результаты разбора и черновики, которые нельзя использовать вовне без человека.</p>",
+        render_work_item_table(items, empty_text="Пока нет общих пунктов на проверке."),
+        "<h3>Площадки</h3>",
         render_opportunity_table(opportunities, empty_text="Пока нечего проверять."),
         "<h3>Контакты и направления</h3>",
         render_lead_table(leads, empty_text="Пока нет контактов на проверке."),
@@ -1006,6 +1044,40 @@ def render_service_offer_list(offers: Iterable[ServiceOffer]) -> str:
         f"<li><a href=\"/offers/{escape(offer.id)}\">{escape(offer.name)}</a>: {escape(offer.value_proposition or '[НУЖНО УТОЧНИТЬ]')}</li>"
         for offer in rows
     ) + "</ul>"
+
+
+def render_direction_counts(counts: dict[str, int]) -> str:
+    if not counts:
+        return "<p class=\"muted\">Направления пока пустые.</p>"
+    return (
+        "<div class=\"grid\">"
+        + "".join(summary_card(name, value, "Записей в направлении") for name, value in counts.items())
+        + "</div>"
+    )
+
+
+def render_work_item_table(items: Iterable[OperatorWorkItem], *, empty_text: str) -> str:
+    rows = list(items)
+    if not rows:
+        return f"<p class=\"muted\">{escape(empty_text)}</p>"
+    body_rows = []
+    for item in rows[:12]:
+        body_rows.append(
+            "<tr>"
+            f"<td><a href=\"{escape(item.url)}\">{escape(item.title)}</a><br><span class=\"muted\">{escape(item.id)}</span></td>"
+            f"<td>{escape(item.section)}</td>"
+            f"<td>{status_badge(item.status)}</td>"
+            f"<td>{escape(item.owner or 'Не назначен')}</td>"
+            f"<td>{escape(item.date or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(item.reason)}<br><span class=\"muted\">{escape(item.next_action)}</span></td>"
+            "</tr>"
+        )
+    return (
+        "<table>"
+        "<thead><tr><th>Запись</th><th>Направление</th><th>Состояние</th><th>Ответственный</th><th>Дата</th><th>Что сделать</th></tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
 
 
 def render_checklist_items(opportunity: Opportunity, items: Iterable[str]) -> str:

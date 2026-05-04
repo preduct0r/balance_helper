@@ -133,6 +133,8 @@ Show urgent actions:
 PYTHONPATH=src python3 -m balance_fundraising.cli digest
 ```
 
+`digest` is a cross-agent digest: it includes platforms, applications, leads, service offers, event/blogger leads, and donor campaigns when they have deadlines, missing owners, review states, missing facts, or risks.
+
 Run the opportunity radar with all curated queries:
 
 ```bash
@@ -329,7 +331,7 @@ BALANCE_WEB_PORT=8080
 
 The first web UI is local-only. It shows:
 
-- dashboard with urgent actions and missing deadlines;
+- единый рабочий стол with urgent actions, missing owners, review items, gaps, risks, and counts across all modules;
 - `Радар` for curated Yandex Search discovery;
 - `B2B` for company search, fit review, risk checks, and first-contact drafts;
 - `Услуги` for paid service offers, materials, gaps, owner, and review state;
@@ -349,6 +351,8 @@ The first web UI is local-only. It shows:
 - readiness block for "Подготовить заявку";
 - safe operator actions: status, review state, owner, notes, checklist done, application readiness, internal application stage, application dates, response summary, reporting state, application notes, and first-run observation status;
 - local heuristic analysis from pasted text or the source URL.
+
+The home page is the cross-agent dashboard. It groups "Сегодня важно", "Без ответственного", "Нужно проверить", "Пробелы и риски", and "По направлениям" across platforms, applications, B2B, offers, events, bloggers, and donor campaigns. The `/review` page is the общая очередь проверки and links each item to its own card.
 
 It does not send applications, emails, reports, or partner messages.
 

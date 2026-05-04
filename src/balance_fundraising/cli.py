@@ -488,7 +488,15 @@ def main(argv: list[str] | None = None) -> int:
         print(build_application_draft(store.get_opportunity(args.opportunity_id), store.list_fund_wiki()))
         return 0
     if args.command == "digest":
-        print(build_digest(store.list_opportunities(), applications=store.list_applications(), leads=store.list_leads()))
+        print(
+            build_digest(
+                store.list_opportunities(),
+                applications=store.list_applications(),
+                leads=store.list_leads(),
+                service_offers=store.list_service_offers(),
+                donor_campaigns=store.list_donor_campaigns(),
+            )
+        )
         return 0
     if args.command == "bot":
         token = os.getenv("TELEGRAM_BOT_TOKEN")

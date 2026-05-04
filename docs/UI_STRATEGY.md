@@ -123,6 +123,8 @@ Phase 4 now includes "Блогеры": operators can run curated public-blog/com
 
 Phase 4 now includes "Доноры": operators can create segment-level donor campaigns, review ethical risks, fill impact points, and read drafts for gratitude, impact digest, reactivation, or regular-donation explainers. The UI keeps donor work at the campaign/segment level: no personal donor data, no donor database import, no mailing, no payments, and no external sends.
 
+Phase 4 is now tied together by the cross-agent operator dashboard: the home page groups urgent work, missing owners, review items, gaps, risks, and direction counts across every implemented module. The review queue uses the same human-review boundary and links each item back to the relevant card.
+
 ## Engineering Implications
 
 - Keep service logic outside the UI so CLI, Telegram, and web screens reuse the same services.

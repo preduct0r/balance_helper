@@ -106,6 +106,17 @@ Status: v1 implemented as a local-first event workspace. It creates `Fundraising
 
 Status: v1 implemented as a local-first service offer workspace. It stores reviewed offers, highlights missing price/result promises instead of guessing them, and lets B2B drafts reference approved offers without sending anything externally.
 
+## Phase 9: Cross-Agent Operator Dashboard
+
+Цель: собрать единый рабочий стол поверх всех реализованных направлений.
+
+- Общий dashboard: срочные сроки, отсутствующие ответственные, проверки, пробелы и риски.
+- Общая очередь проверки со ссылками на карточки платформ, заявок, лидов, услуг, мероприятий, блогеров и донорских кампаний.
+- Cross-agent digest для CLI и UI без новых внешних отправок.
+- Единая логика агрегации без новой таблицы и без изменения исходных сущностей.
+
+Status: v1 implemented as a local-first cross-agent dashboard and review queue. It builds operator work items on the fly from existing records and keeps external actions human-review only.
+
 ## Shared Principles
 
 - Человек утверждает все внешние действия.
