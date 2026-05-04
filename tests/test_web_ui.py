@@ -13,10 +13,11 @@ from balance_fundraising.adapters.web import (
     add_opportunity,
     analyze_opportunity,
     render_dashboard,
+    render_fund_wiki,
     render_opportunity_detail,
     render_review_queue,
 )
-from balance_fundraising.domain import Opportunity
+from balance_fundraising.domain import FundWikiEntry, Opportunity
 
 
 class WebUiTests(unittest.TestCase):
@@ -63,6 +64,39 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("Проверить дедлайн", html)
         self.assertIn("Нужны устав и отчетность", html)
         self.assertIn("[НУЖНО УТОЧНИТЬ]", html)
+        self.assertIn("Готовность заявки", html)
+        self.assertIn("Пробелы в паспорте фонда", html)
+
+    def test_fund_wiki_page_shows_required_keys_and_gaps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            html = render_fund_wiki(store)
+        self.assertIn("Паспорт фонда", html)
+        self.assertIn("Социальный результат", html)
+        self.assertIn("Юридические данные", html)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", html)
+
+    def test_fund_wiki_post_updates_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store)
+            status, location = app.post(
+                "/fund-wiki",
+                {
+                    "value_impact": "100 участников получили поддержку",
+                    "source_impact": "Отчет фонда",
+                    "owner_impact": "Мария",
+                    "review_state_impact": "approved",
+                },
+            )
+            entries = {entry.key: entry for entry in store.list_fund_wiki()}
+        self.assertEqual(status, 303)
+        self.assertEqual(location, "/fund-wiki")
+        self.assertEqual(entries["impact"].value, "100 участников получили поддержку")
+        self.assertEqual(entries["impact"].source, "Отчет фонда")
+        self.assertEqual(entries["impact"].owner, "Мария")
 
     def test_review_queue_shows_unreviewed_items(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -127,12 +161,14 @@ class WebUiTests(unittest.TestCase):
             app.post(f"/opportunities/{opportunity.id}/owner", {"owner": "Анна"})
             app.post(f"/opportunities/{opportunity.id}/note", {"notes": "Позвонить партнёру"})
             app.post(f"/opportunities/{opportunity.id}/checklist", {"item": "Устав фонда"})
+            app.post(f"/opportunities/{opportunity.id}/readiness", {"readiness_state": "preparing_documents"})
             updated = store.get_opportunity(opportunity.id)
         self.assertEqual(updated.status, "not_started")
         self.assertEqual(updated.review_state, "needs_clarification")
         self.assertEqual(updated.owner, "Анна")
         self.assertEqual(updated.notes, "Позвонить партнёру")
         self.assertIn("Устав фонда", updated.checklist_done)
+        self.assertEqual(updated.readiness_state, "preparing_documents")
 
     def test_render_route_flow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -141,6 +177,7 @@ class WebUiTests(unittest.TestCase):
             app = WebApp(store)
             self.assertEqual(app.render("/")[0], 200)
             self.assertEqual(app.render("/review")[0], 200)
+            self.assertEqual(app.render("/fund-wiki")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -149,6 +186,22 @@ class WebUiTests(unittest.TestCase):
             detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
         self.assertEqual(detail_status, 200)
         self.assertIn("Отчетность фонда", detail_html)
+
+    def test_detail_readiness_improves_when_fund_wiki_gaps_are_filled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            for key in ["impact", "legal_details", "reports", "public_links", "presentation"]:
+                store.upsert_fund_wiki_entry(FundWikiEntry(key=key, value=f"{key} value", source="Тест"))
+            opportunity = Opportunity.from_url("https://ready.example")
+            opportunity.name = "Готовая площадка"
+            opportunity.deadline = "2026-06-01"
+            opportunity.required_documents = ["Устав фонда"]
+            opportunity.checklist_done = ["Устав фонда"]
+            opportunity.confidence = 0.9
+            store.upsert_opportunity(opportunity)
+            html = render_opportunity_detail(store, opportunity.id)
+        self.assertIn("Можно готовить к ручной проверке", html)
 
 
 if __name__ == "__main__":

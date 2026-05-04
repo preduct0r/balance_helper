@@ -50,7 +50,7 @@ class GoogleSheetsStore:
         return opportunity
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
-        return [FundWikiEntry(**row) for row in self._records("FundWiki") if row.get("key")]
+        return [FundWikiEntry.from_dict(row) for row in self._records("FundWiki") if row.get("key")]
 
     def upsert_fund_wiki_entry(self, entry: FundWikiEntry) -> None:
         self._upsert_row("FundWiki", "key", entry.to_dict())

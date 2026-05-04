@@ -87,7 +87,7 @@ class LocalJsonStore:
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         data = self._read_initialized()
-        return [FundWikiEntry(**row) for row in data["FundWiki"]]
+        return [FundWikiEntry.from_dict(row) for row in data["FundWiki"]]
 
     def upsert_fund_wiki_entry(self, entry: FundWikiEntry) -> None:
         data = self._read_initialized()
@@ -118,4 +118,3 @@ class LocalJsonStore:
     def _write(self, data: Dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-

@@ -6,17 +6,20 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from balance_fundraising.adapters.web_templates import (
     render_dashboard_page,
+    render_fund_wiki_page,
     render_message,
     render_not_found,
     render_opportunity_detail_page,
     render_opportunity_list_page,
     render_review_queue_page,
 )
-from balance_fundraising.domain import ActivityLogEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.draft import build_application_draft
+from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key
+from balance_fundraising.services.readiness import build_readiness
 
 
 class WebApp:
@@ -32,6 +35,8 @@ class WebApp:
             return 200, render_opportunities(self.store.list_opportunities())
         if route == "/review":
             return 200, render_review_queue(self.store)
+        if route == "/fund-wiki":
+            return 200, render_fund_wiki(self.store)
         if route.startswith("/opportunities/"):
             opportunity_id = unquote(route.removeprefix("/opportunities/")).strip("/")
             if "/" in opportunity_id or not opportunity_id:
@@ -48,6 +53,9 @@ class WebApp:
                 return 400, render_message("Нужна ссылка", "Вставьте ссылку на страницу возможности.")
             opportunity = add_opportunity(self.store, url)
             return 303, f"/opportunities/{opportunity.id}"
+        if route == "/fund-wiki":
+            update_fund_wiki(self.store, form)
+            return 303, "/fund-wiki"
         action = _parse_opportunity_action(route)
         if action is None:
             return 404, render_not_found()
@@ -63,6 +71,8 @@ class WebApp:
             update_owner(self.store, opportunity_id, form.get("owner", ""))
         elif action_name == "checklist":
             mark_checklist_done(self.store, opportunity_id, form.get("item", ""))
+        elif action_name == "readiness":
+            update_readiness(self.store, opportunity_id, form.get("readiness_state", ""))
         else:
             return 404, render_not_found()
         return 303, f"/opportunities/{opportunity_id}"
@@ -115,6 +125,34 @@ def mark_checklist_done(store, opportunity_id: str, item: str) -> Opportunity:
     return opportunity
 
 
+def update_readiness(store, opportunity_id: str, readiness_state: str) -> Opportunity:
+    opportunity = store.update_opportunity_fields(opportunity_id, {"readiness_state": readiness_state.strip() or "not_started"})
+    store.add_activity(ActivityLogEntry.today(action="readiness", entity_id=opportunity.id, details=opportunity.readiness_state))
+    return opportunity
+
+
+def update_fund_wiki(store, form: Dict[str, str]) -> None:
+    key = form.get("key", "").strip()
+    existing = fund_wiki_by_key(store.list_fund_wiki())
+    fields = [field for field in REQUIRED_FUND_WIKI_FIELDS if field.key == key] if key else REQUIRED_FUND_WIKI_FIELDS
+    for field in fields:
+        current = existing.get(field.key, FundWikiEntry(key=field.key, value=""))
+        value = form.get(f"value_{field.key}", current.value).strip()
+        source = form.get(f"source_{field.key}", current.source).strip() or "FundWiki"
+        owner = form.get(f"owner_{field.key}", current.owner).strip()
+        review_state = form.get(f"review_state_{field.key}", current.review_state).strip() or "needs_review"
+        entry = FundWikiEntry(
+            key=field.key,
+            value=value,
+            source=source,
+            owner=owner,
+            review_state=review_state,
+            last_updated=ActivityLogEntry.today(action="fund_wiki", entity_id=field.key).timestamp,
+        )
+        store.upsert_fund_wiki_entry(entry)
+        store.add_activity(ActivityLogEntry.today(action="fund_wiki", entity_id=field.key, details=review_state))
+
+
 def render_dashboard(store) -> str:
     opportunities = store.list_opportunities()
     missing_deadlines = [item for item in opportunities if not item.deadline]
@@ -137,13 +175,18 @@ def render_review_queue(store) -> str:
     return render_review_queue_page(opportunities)
 
 
+def render_fund_wiki(store) -> str:
+    return render_fund_wiki_page(store.list_fund_wiki())
+
+
 def render_opportunity_detail(store, opportunity_id: str) -> str:
     try:
         opportunity = store.get_opportunity(opportunity_id)
     except KeyError:
         return render_not_found()
     checklist = build_checklist(opportunity)
-    draft = build_application_draft(opportunity, store.list_fund_wiki())
+    wiki_entries = store.list_fund_wiki()
+    draft = build_application_draft(opportunity, wiki_entries)
     checklist_items = opportunity.required_documents + opportunity.missing_info
     if not opportunity.deadline:
         checklist_items.append("Уточнить дедлайн")
@@ -152,6 +195,7 @@ def render_opportunity_detail(store, opportunity_id: str) -> str:
         checklist=checklist,
         draft=draft,
         checklist_items=checklist_items,
+        readiness=build_readiness(opportunity, wiki_entries),
     )
 
 

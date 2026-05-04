@@ -141,6 +141,14 @@ PYTHONPATH=src python3 scripts/smoke_operator_workflow.py
 
 It creates a temporary local store, adds a test link, analyzes a fixture, prints a checklist, prints a draft, and prints a digest.
 
+Create a safe training dataset in the selected local store:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli seed-demo
+```
+
+`seed-demo` adds a тренировочный набор with realistic demo opportunities such as VK Добро, СберВместе, a bank roundup program, a grant, and a charity market. It does not call external services.
+
 ## 6. Local Web UI
 
 Start the local web interface:
@@ -173,10 +181,12 @@ The first web UI is local-only. It shows:
 - dashboard with urgent actions and missing deadlines;
 - opportunity list;
 - review queue;
+- `FundWiki` / Паспорт фонда;
 - opportunity detail;
 - checklist;
 - draft;
-- safe operator actions: status, review state, owner, notes, checklist done;
+- readiness block for "Подготовить заявку";
+- safe operator actions: status, review state, owner, notes, checklist done, application readiness;
 - local heuristic analysis from pasted text or the source URL.
 
 It does not send applications, emails, reports, or partner messages.
@@ -186,11 +196,34 @@ It does not send applications, emails, reports, or partner messages.
 1. Open the dashboard and start with "Сегодня важно".
 2. Open "Проверка" to see new findings and drafts that need a person.
 3. Open an opportunity card.
-4. Check "Что неизвестно" and "Подтверждения".
-5. Assign an owner if the next step belongs to someone.
-6. Save a note when context would otherwise live in chat.
-7. Mark checklist items done only after checking the real source or document.
-8. Treat every draft as preparation material until a human approves it.
+4. Check "Готовность заявки" first: it shows missing documents, missing deadline, low confidence, and FundWiki gaps.
+5. Open "Паспорт фонда" when the card says that reusable facts are missing.
+6. Check "Что неизвестно" and "Подтверждения".
+7. Assign an owner if the next step belongs to someone.
+8. Save a note when context would otherwise live in chat.
+9. Mark checklist items done only after checking the real source or document.
+10. Treat every draft as preparation material until a human approves it.
+
+### Training scenario without risk
+
+1. Run `seed-demo`.
+2. Start `web`.
+3. Open "Проверка" and choose a demo opportunity.
+4. Open "Паспорт фонда" and fill one missing block, for example "Социальный результат".
+5. Return to the opportunity and check "Готовность заявки".
+6. Change readiness to "Готовим документы" or "Готово к ручной проверке" only if the remaining blockers make sense to a human.
+
+### First real-world smoke checklist
+
+Use this for the first пользовательский прогон with a real link:
+
+1. Add one real opportunity link in the web UI.
+2. Run analysis from pasted source text if automatic fetch is not reliable.
+3. Check deadline, documents, unknowns, and source snippets.
+4. Open "Паспорт фонда" and fill only facts that are already confirmed by fund materials.
+5. Return to "Готовность заявки" and assign owners for every blocker.
+6. Generate/read the draft, but do not send it externally.
+7. Record what was confusing, missing, or excessive in `docs/agent-progress.md` before the next development step.
 
 ## 7. Operator Recipes
 
@@ -222,6 +255,8 @@ Generate the checklist and check:
 - deadline is known or intentionally marked as missing;
 - required documents are listed;
 - missing items are resolved or assigned;
+- `FundWiki` gaps are filled in "Паспорт фонда";
+- "Готовность заявки" has no blocking items, or each blocker has a named owner;
 - source snippets support key facts;
 - a human reviewed the draft.
 

@@ -9,10 +9,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
-from balance_fundraising.domain import Opportunity
+from balance_fundraising.domain import FundWikiEntry, Opportunity
 from balance_fundraising.services.checklist import build_checklist
+from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.draft import build_application_draft
+from balance_fundraising.services.readiness import build_readiness
 
 
 class ServiceTests(unittest.TestCase):
@@ -24,10 +26,12 @@ class ServiceTests(unittest.TestCase):
             opportunity.name = "Тестовая площадка"
             opportunity.eligibility = ["НКО"]
             opportunity.missing_info = ["Нет дедлайна"]
+            opportunity.notes = "Юридические данные: нельзя брать из заметок"
             draft = build_application_draft(opportunity, store.list_fund_wiki())
             self.assertIn("Помогать людям с психическими расстройствами", draft)
             self.assertIn("[НУЖНО УТОЧНИТЬ]", draft)
             self.assertIn("Нет дедлайна", draft)
+            self.assertNotIn("нельзя брать из заметок", draft)
 
     def test_digest_sorts_urgent_and_overdue(self) -> None:
         overdue = Opportunity.from_url("https://old.example")
@@ -62,6 +66,36 @@ class ServiceTests(unittest.TestCase):
             }
         )
         self.assertEqual(opportunity.checklist_done, ["Устав фонда", "Отчетность фонда"])
+
+    def test_fund_wiki_entry_from_dict_preserves_defaults(self) -> None:
+        entry = FundWikiEntry.from_dict({"key": "mission", "value": "Миссия"})
+        self.assertEqual(entry.source, "FundWiki")
+        self.assertEqual(entry.owner, "")
+        self.assertEqual(entry.review_state, "approved")
+
+    def test_readiness_marks_missing_deadline_wiki_and_low_confidence(self) -> None:
+        opportunity = Opportunity.from_url("https://example.org")
+        opportunity.name = "Тестовая площадка"
+        opportunity.required_documents = ["Устав фонда"]
+        opportunity.missing_info = ["Проверить контакт"]
+        opportunity.confidence = 0.2
+        readiness = build_readiness(opportunity, [FundWikiEntry(key="mission", value="Миссия")])
+        self.assertFalse(readiness.ready)
+        self.assertIn("Уточнить дедлайн", readiness.blockers)
+        self.assertIn("Проверить контакт", readiness.blockers)
+        self.assertIn("Подтвердить факт: Кому помогает фонд", readiness.blockers)
+        self.assertIn("Проверить низкую уверенность разбора", readiness.blockers)
+
+    def test_seed_demo_creates_training_opportunities(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            created = seed_demo_store(store)
+            opportunities = store.list_opportunities()
+        self.assertGreaterEqual(created, 5)
+        self.assertGreaterEqual(len(opportunities), 5)
+        self.assertTrue(any("VK Добро" in item.name for item in opportunities))
+        self.assertTrue(any(item.deadline == "2026-04-12" for item in opportunities))
 
 
 if __name__ == "__main__":

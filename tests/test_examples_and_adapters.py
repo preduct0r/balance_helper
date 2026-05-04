@@ -9,6 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.google_sheets_store import GoogleSheetsStore
+from balance_fundraising.domain import FundWikiEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,6 +26,24 @@ class ExampleAndAdapterTests(unittest.TestCase):
             store.init_store()
         self.assertTrue(store._initialized)
         self.assertIn("FundWiki", spreadsheet.worksheets_by_title)
+
+    def test_google_sheets_fund_wiki_upsert_supports_operator_fields(self) -> None:
+        spreadsheet = FakeSpreadsheet()
+        store = GoogleSheetsStore("sheet", "service.json")
+        with patch.object(store, "_open", return_value=spreadsheet):
+            store.init_store()
+            store.upsert_fund_wiki_entry(
+                FundWikiEntry(
+                    key="impact",
+                    value="100 участников",
+                    source="Отчет",
+                    owner="Анна",
+                    review_state="approved",
+                )
+            )
+            entries = {entry.key: entry for entry in store.list_fund_wiki()}
+        self.assertEqual(entries["impact"].value, "100 участников")
+        self.assertEqual(entries["impact"].owner, "Анна")
 
 
 class FakeWorksheet:
@@ -49,6 +68,12 @@ class FakeWorksheet:
                 self.rows[0] = values[0]
             else:
                 self.rows.append(values[0])
+            return
+        if cell.startswith("A"):
+            index = int(cell[1:]) - 1
+            while len(self.rows) <= index:
+                self.rows.append([])
+            self.rows[index] = values[0]
 
     def append_row(self, values):
         self.rows.append(values)
@@ -72,4 +97,3 @@ class FakeSpreadsheet:
 
 if __name__ == "__main__":
     unittest.main()
-

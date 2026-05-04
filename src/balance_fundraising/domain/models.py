@@ -35,6 +35,7 @@ class Opportunity:
     notes: str = ""
     checklist_done: List[str] = field(default_factory=list)
     review_state: str = "needs_review"
+    readiness_state: str = "not_started"
 
     @classmethod
     def from_url(cls, url: str) -> "Opportunity":
@@ -107,6 +108,22 @@ class FundWikiEntry:
     key: str
     value: str
     source: str = "FundWiki"
+    last_updated: Optional[str] = None
+    owner: str = ""
+    review_state: str = "approved"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "FundWikiEntry":
+        values = dict(data)
+        payload: Dict[str, Any] = {}
+        for field_name, field_info in cls.__dataclass_fields__.items():
+            if field_name not in values:
+                continue
+            value = values[field_name]
+            if value is None and field_info.default is not MISSING:
+                continue
+            payload[field_name] = value
+        return cls(**payload)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

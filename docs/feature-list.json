@@ -122,5 +122,17 @@
       "docs/UI_STRATEGY.md and docs/USAGE.md describe Phase 2 review/edit behavior and human-review boundaries."
     ],
     "passes": true
+  },
+  {
+    "id": "fund-wiki-readiness-workflow",
+    "priority": 1,
+    "description": "Operator can maintain FundWiki passport facts, see application readiness blockers, and seed a safe local demo workflow.",
+    "acceptance_steps": [
+      "Web UI shows and updates required FundWiki fields without external sends.",
+      "Opportunity detail shows readiness blockers for documents, deadline, missing info, FundWiki gaps, and low confidence.",
+      "CLI seed-demo creates a stable local training dataset without external services.",
+      "README, docs/USAGE.md, docs/UI_STRATEGY.md, and web smoke checks document the FundWiki/readiness workflow."
+    ],
+    "passes": true
   }
 ]

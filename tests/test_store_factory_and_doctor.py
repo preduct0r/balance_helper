@@ -75,6 +75,18 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertEqual(create_store_mock.call_args.args[0].backend, "google")
         self.assertIn("Initialized google store", output.getvalue())
 
+    def test_cli_seed_demo_populates_local_store(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = cli_main(["--store", str(store_path), "seed-demo"])
+            store = LocalJsonStore(store_path)
+            opportunities = store.list_opportunities()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Seeded demo", output.getvalue())
+        self.assertGreaterEqual(len(opportunities), 5)
+
 
 class FakeStore:
     def __init__(self) -> None:
@@ -86,4 +98,3 @@ class FakeStore:
 
 if __name__ == "__main__":
     unittest.main()
-

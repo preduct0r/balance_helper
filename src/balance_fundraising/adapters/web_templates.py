@@ -4,7 +4,9 @@ from html import escape
 from typing import Iterable, List
 
 from balance_fundraising.adapters.web_static import WEB_CSS
-from balance_fundraising.domain import Opportunity
+from balance_fundraising.domain import FundWikiEntry, Opportunity
+from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key, fund_wiki_label
+from balance_fundraising.services.readiness import ReadinessReport
 
 STATUS_LABELS = {
     "needs_review": "Нужна проверка",
@@ -21,6 +23,14 @@ REVIEW_STATE_LABELS = {
     "reviewed": "Проверено человеком",
 }
 
+READINESS_STATE_LABELS = {
+    "not_started": "Не начато",
+    "preparing_documents": "Готовим документы",
+    "ready_for_human": "Готово к ручной проверке",
+    "needs_clarification": "Нужно уточнить",
+    "postponed": "Отложить",
+}
+
 
 def render_layout(title: str, body: str) -> str:
     return f"""<!doctype html>
@@ -34,7 +44,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/opportunities">Возможности</a><a href="/review">Проверка</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/opportunities">Возможности</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -104,12 +114,37 @@ def render_review_queue_page(opportunities: Iterable[Opportunity]) -> str:
     return render_layout("Проверка", "\n".join(body))
 
 
+def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
+    by_key = fund_wiki_by_key(entries)
+    rows = []
+    for field in REQUIRED_FUND_WIKI_FIELDS:
+        entry = by_key.get(field.key, FundWikiEntry(key=field.key, value=""))
+        value = entry.value or ""
+        rows.append(
+            "<section>"
+            f"<h2>{escape(field.label)}</h2>"
+            f"<p class=\"muted\">{escape(field.prompt)}</p>"
+            f"<form method=\"post\" action=\"/fund-wiki\">"
+            f"<input type=\"hidden\" name=\"key\" value=\"{escape(field.key)}\">"
+            f"<label>Утвержденный текст<textarea name=\"value_{escape(field.key)}\" rows=\"4\" placeholder=\"[НУЖНО УТОЧНИТЬ]\">{escape(value)}</textarea></label>"
+            f"<label>Источник <input name=\"source_{escape(field.key)}\" value=\"{escape(entry.source, quote=True)}\" placeholder=\"Документ, отчет или ссылка\"></label>"
+            f"<label>Ответственный <input name=\"owner_{escape(field.key)}\" value=\"{escape(entry.owner, quote=True)}\" placeholder=\"Имя\"></label>"
+            f"<label>Проверка <select name=\"review_state_{escape(field.key)}\">{fund_wiki_review_options(entry.review_state)}</select></label>"
+            f"<p class=\"{'needs-info' if not value else 'muted'}\">{escape(value or '[НУЖНО УТОЧНИТЬ] Этот блок нужен для заявок.')}</p>"
+            "<button type=\"submit\">Сохранить блок</button>"
+            "</form>"
+            "</section>"
+        )
+    return render_layout("Паспорт фонда", "\n".join(rows))
+
+
 def render_opportunity_detail_page(
     *,
     opportunity: Opportunity,
     checklist: str,
     draft: str,
     checklist_items: List[str],
+    readiness: ReadinessReport,
 ) -> str:
     body = [
         "<section>",
@@ -124,6 +159,7 @@ def render_opportunity_detail_page(
         fact_row("Уверенность", f"{opportunity.confidence:.2f}"),
         "</section>",
         render_operator_actions(opportunity),
+        render_readiness_block(opportunity, readiness),
         "<section>",
         "<h2>Что это</h2>",
         render_list(opportunity.eligibility, empty_text="[НУЖНО УТОЧНИТЬ] Требования к участию"),
@@ -172,6 +208,10 @@ def status_badge(status: str) -> str:
 def review_badge(review_state: str) -> str:
     css_class = "badge-ok" if review_state == "reviewed" else "badge-warn"
     return f"<span class=\"badge {css_class}\">{escape(review_state_label(review_state))}</span>"
+
+
+def readiness_state_label(readiness_state: str) -> str:
+    return READINESS_STATE_LABELS.get(readiness_state, readiness_state)
 
 
 def summary_card(title: str, value: int, caption: str) -> str:
@@ -262,6 +302,30 @@ def render_checklist_items(opportunity: Opportunity, items: Iterable[str]) -> st
     return "".join(rows)
 
 
+def render_readiness_block(opportunity: Opportunity, readiness: ReadinessReport) -> str:
+    message = "Можно готовить к ручной проверке" if readiness.ready else "Есть пробелы перед заявкой"
+    blockers = render_list(readiness.blockers, empty_text="Нет блокирующих пробелов.")
+    wiki_gaps = render_list(
+        [fund_wiki_label(key) for key in readiness.missing_wiki_keys],
+        empty_text="Пробелов в паспорте фонда нет.",
+    )
+    return (
+        "<section>"
+        "<h2>Готовность заявки</h2>"
+        f"<p>{status_badge(readiness_state_label(readiness.state))}</p>"
+        f"<p class=\"{'badge-ok' if readiness.ready else 'needs-info'}\">{escape(message)}</p>"
+        "<h3>Что мешает подать</h3>"
+        f"{blockers}"
+        "<h3>Пробелы в паспорте фонда</h3>"
+        f"{wiki_gaps}"
+        f"<form method=\"post\" action=\"/opportunities/{escape(opportunity.id)}/readiness\">"
+        f"<label>Рабочее состояние <select name=\"readiness_state\">{readiness_state_options(opportunity.readiness_state)}</select></label>"
+        "<button type=\"submit\">Сохранить готовность</button>"
+        "</form>"
+        "</section>"
+    )
+
+
 def render_operator_actions(opportunity: Opportunity) -> str:
     return (
         "<section>"
@@ -320,6 +384,19 @@ def review_state_options(current: str) -> str:
         "needs_clarification": "Нужно уточнить",
         "ready_for_human": "Готово к ручной проверке",
         "reviewed": "Проверено человеком",
+    }
+    return "".join(option(value, label, current) for value, label in states.items())
+
+
+def readiness_state_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in READINESS_STATE_LABELS.items())
+
+
+def fund_wiki_review_options(current: str) -> str:
+    states = {
+        "approved": "Проверено",
+        "needs_review": "Нужно проверить",
+        "needs_update": "Нужно обновить",
     }
     return "".join(option(value, label, current) for value, label in states.items())
 

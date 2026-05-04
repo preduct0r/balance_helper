@@ -13,6 +13,7 @@ from balance_fundraising.clients.yandex_search import YandexSearchClient
 from balance_fundraising.domain import ActivityLogEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.checklist import build_checklist
+from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.doctor import doctor_has_errors, format_doctor_report, run_doctor
@@ -31,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("digest")
     subparsers.add_parser("discover")
     subparsers.add_parser("doctor")
+    subparsers.add_parser("seed-demo")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -76,6 +78,10 @@ def main(argv: list[str] | None = None) -> int:
         service = DiscoveryService(store, YandexSearchClient())
         discovered = service.discover()
         print(f"Discovered {len(discovered)} opportunities")
+        return 0
+    if args.command == "seed-demo":
+        created = seed_demo_store(store)
+        print(f"Seeded demo with {created} opportunities")
         return 0
     if args.command == "analyze":
         text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else None

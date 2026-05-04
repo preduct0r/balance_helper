@@ -95,7 +95,11 @@ Allow the user to review extracted facts, assign owners, update statuses, save n
 
 ### UI Phase 3: Guided Workflows
 
-Add guided flows for "Подать заявку", "Подготовить отчёт", "Связаться с партнёром", and "Проверить новый источник".
+Add guided flows for "Подать заявку", "Подготовить отчёт", "Связаться с партнёром", and "Проверить новый источник". The first guided workflow is "Подготовить заявку": it combines FundWiki gaps, missing documents, deadline, confidence, owner, status, and safe readiness states without sending anything externally.
+
+### UI Phase 3A: FundWiki And Readiness
+
+Make "Паспорт фонда" editable in the local web UI and show required reusable facts for applications: mission, audience, programs, start year, impact, legal details, reports, public links, and presentation. Opportunity cards should show "Готовность заявки" so the operator sees exactly what blocks human review.
 
 ### UI Phase 4: Multi-Agent Workspace
 
