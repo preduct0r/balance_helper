@@ -26,6 +26,14 @@ from balance_fundraising.services.b2b import (
     build_b2b_draft,
     sanitize_b2b_error,
 )
+from balance_fundraising.services.bloggers import (
+    BloggerDiscoveryService,
+    analyze_blogger_lead,
+    build_blogger_collaboration_draft,
+    build_blogger_ethics_checklist,
+    create_blogger_lead,
+    sanitize_blogger_error,
+)
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
@@ -526,6 +534,90 @@ class ServiceTests(unittest.TestCase):
         self.assertNotIn("нельзя использовать", checklist)
         self.assertTrue(any(item.action == "event_add" for item in activity))
 
+    def test_blogger_radar_creates_blogger_leads_and_deduplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            existing = FundraisingLead.from_values(
+                category="blogger",
+                name="Старое сообщество",
+                url="https://bloggers.example/existing",
+            )
+            existing.status = "accepted"
+            store.upsert_lead(existing)
+            result = BloggerDiscoveryService(store, FakeBloggerSearchClient()).discover(["психология блог"], limit_per_query=5)
+            leads = {item.url: item for item in store.list_leads()}
+            activity = store.list_activity()
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.existing_count, 1)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(leads["https://bloggers.example/new"].category, "blogger")
+        self.assertEqual(leads["https://bloggers.example/new"].status, "needs_review")
+        self.assertEqual(leads["https://bloggers.example/existing"].status, "accepted")
+        self.assertTrue(any(item.action == "blogger_discover_run" and "created=1" in item.details for item in activity))
+
+    def test_blogger_radar_failure_logs_sanitized_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            "os.environ",
+            {"YANDEX_API_KEY": "SECRET_KEY", "YANDEX_FOLDER_ID": "SECRET_FOLDER"},
+        ):
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            result = BloggerDiscoveryService(store, FailingBloggerSearchClient()).discover(["ошибка"], limit_per_query=5)
+            activity = store.list_activity()
+            details = "\n".join(item.details for item in activity)
+        self.assertEqual(result.status, "failed")
+        self.assertIn("blogger_discover_error", {item.action for item in activity})
+        self.assertNotIn("SECRET_KEY", details)
+        self.assertNotIn("SECRET_FOLDER", details)
+        self.assertEqual(sanitize_blogger_error("SECRET failure"), "[скрыто] failure")
+
+    def test_blogger_analysis_checklist_and_draft_are_safe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            lead = create_blogger_lead(
+                store,
+                name="Блог о бережной психологии",
+                url="https://bloggers.example/mental-health",
+                description="Публичный блог о ментальном здоровье.",
+            )
+            analyzed = analyze_blogger_lead(
+                store,
+                lead.id,
+                text=(
+                    "Автор пишет про психологию, ментальное здоровье, нейроотличия и инклюзию. "
+                    "Есть форма обратной связи. Риск: нужна репутационная проверка."
+                ),
+            )
+            analyzed.notes = "Внутренняя заметка: нельзя использовать как факт"
+            store.upsert_lead(analyzed)
+            checklist = build_blogger_ethics_checklist(analyzed, store.list_fund_wiki())
+            draft = build_blogger_collaboration_draft(analyzed, store.list_fund_wiki())
+            activity = store.list_activity()
+            combined = f"{checklist}\n{draft}".lower()
+        self.assertIn("ментальное здоровье", analyzed.fit_for_fund)
+        self.assertIn("нейроотличия", analyzed.fit_for_fund)
+        self.assertIn("Проверить репутацию", analyzed.risk_flags)
+        self.assertIn("форма обратной связи", analyzed.contact)
+        self.assertGreater(analyzed.confidence, 0.5)
+        self.assertIn("Этический чек-лист", checklist)
+        self.assertIn("стигматизирующих формулировок", checklist)
+        self.assertIn("давления на подопечных", checklist)
+        self.assertIn("личных историй", checklist)
+        self.assertIn("репутационные риски", checklist)
+        self.assertIn("соответствие ценностям фонда", checklist)
+        self.assertIn("эфир, пост, сбор, амбассадорство, аукцион, мерч-дроп", checklist)
+        self.assertIn("Черновик предложения коллаборации", draft)
+        self.assertIn("Помогать людям с психическими расстройствами", draft)
+        self.assertIn("Автор пишет про психологию", draft)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", draft)
+        self.assertNotIn("нельзя использовать", draft)
+        for forbidden in ["сумасшед", "психами", "безум"]:
+            self.assertNotIn(forbidden, combined)
+        self.assertTrue(any(item.action == "blogger_add" for item in activity))
+        self.assertTrue(any(item.action == "blogger_analyze" for item in activity))
+
 
 class FakeSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
@@ -562,6 +654,19 @@ class FakeEventSearchClient:
 
 
 class FailingEventSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        raise RuntimeError("Yandex failed with SECRET_KEY in SECRET_FOLDER")
+
+
+class FakeBloggerSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [
+            SearchResult(title="Новый блог", url="https://bloggers.example/new", snippet="Психология и ментальное здоровье"),
+            SearchResult(title="Старое сообщество", url="https://bloggers.example/existing", snippet="Обновленный фрагмент"),
+        ]
+
+
+class FailingBloggerSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
         raise RuntimeError("Yandex failed with SECRET_KEY in SECRET_FOLDER")
 

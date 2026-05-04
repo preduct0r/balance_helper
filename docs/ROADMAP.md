@@ -80,6 +80,8 @@ Status: v1 implemented as a local-first B2B workspace. It creates `FundraisingLe
 - Форматы: амбассадорство, аукцион, эфир, мерч-дроп, сбор на конкретную программу.
 - Запрет на стигматизирующие формулировки, давление на подопечных и раскрытие персональных историй без согласия.
 
+Status: v1 implemented as a local-first blogger workspace. It creates `FundraisingLead(category="blogger")` records, runs curated manual blogger radar, performs deterministic ethics/fit analysis from public text, and generates a human-reviewed ethics checklist and collaboration draft. It intentionally does not send messages, comments, emails, Telegram posts, parse private profiles, or suggest beneficiary personal stories.
+
 ## Phase 7: Events And Merch Agent
 
 Цель: делать мероприятия и мерч управляемым источником средств.

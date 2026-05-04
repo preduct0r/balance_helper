@@ -308,6 +308,79 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("Чек-лист мероприятия", checklist_text)
         self.assertIn("Мерч и материалы", checklist_text)
 
+    def test_cli_blogger_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            fake_service = FakeBloggerDiscoveryService()
+            output = io.StringIO()
+            with patch("balance_fundraising.cli.YandexSearchClient", return_value=object()):
+                with patch("balance_fundraising.cli.BloggerDiscoveryService", return_value=fake_service):
+                    with contextlib.redirect_stdout(output):
+                        radar_code = cli_main(
+                            [
+                                "--store",
+                                str(store_path),
+                                "blogger-radar",
+                                "--query",
+                                "психология блог",
+                                "--limit",
+                                "5",
+                            ]
+                        )
+            self.assertEqual(radar_code, 0)
+            self.assertEqual(fake_service.queries, ["психология блог"])
+            self.assertEqual(fake_service.limit_per_query, 5)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                add_code = cli_main(
+                    [
+                        "--store",
+                        str(store_path),
+                        "blogger-add",
+                        "--name",
+                        "Блог о психологии",
+                        "--url",
+                        "https://bloggers.example/psy",
+                        "--description",
+                        "Публичный блог о ментальном здоровье",
+                    ]
+                )
+            lead_id = output.getvalue().strip()
+            text_file = Path(tmp) / "blogger.txt"
+            text_file.write_text(
+                "Автор пишет про психологию, ментальное здоровье и инклюзию. Есть форма обратной связи.",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                analyze_code = cli_main(["--store", str(store_path), "blogger-analyze", lead_id, "--text-file", str(text_file)])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                list_code = cli_main(["--store", str(store_path), "bloggers"])
+            list_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                show_code = cli_main(["--store", str(store_path), "blogger-show", lead_id])
+            show_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                checklist_code = cli_main(["--store", str(store_path), "blogger-checklist", lead_id])
+            checklist_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                draft_code = cli_main(["--store", str(store_path), "blogger-draft", lead_id])
+            draft_text = output.getvalue()
+        self.assertEqual(add_code, 0)
+        self.assertEqual(analyze_code, 0)
+        self.assertEqual(list_code, 0)
+        self.assertEqual(show_code, 0)
+        self.assertEqual(checklist_code, 0)
+        self.assertEqual(draft_code, 0)
+        self.assertIn("Блог о психологии", list_text)
+        self.assertIn("ментальном здоровье", show_text)
+        self.assertIn("Этический чек-лист", checklist_text)
+        self.assertIn("Черновик предложения коллаборации", draft_text)
+
     def test_cli_offer_commands_and_b2b_draft_uses_approved_offer(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store_path = Path(tmp) / "store.json"
@@ -387,6 +460,10 @@ class FakeB2BDiscoveryService(FakeDiscoveryService):
 
 
 class FakeEventDiscoveryService(FakeDiscoveryService):
+    pass
+
+
+class FakeBloggerDiscoveryService(FakeDiscoveryService):
     pass
 
 

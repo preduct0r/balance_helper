@@ -257,6 +257,20 @@ PYTHONPATH=src python3 -m balance_fundraising.cli event-checklist <lead_id>
 
 Event v1 is for deciding and preparing participation. It is без складского учета, без продаж, без платежей, без расчета остатков and without automatic applications.
 
+Run blogger radar and prepare an ethics checklist or collaboration draft:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli blogger-radar --query "ментальное здоровье блогер НКО" --limit 5
+PYTHONPATH=src python3 -m balance_fundraising.cli bloggers
+PYTHONPATH=src python3 -m balance_fundraising.cli blogger-add --name "Блог о психологии" --url https://blog.example --description "Публичный блог о ментальном здоровье"
+PYTHONPATH=src python3 -m balance_fundraising.cli blogger-show <lead_id>
+PYTHONPATH=src python3 -m balance_fundraising.cli blogger-analyze <lead_id> --text-file /path/to/blog.txt
+PYTHONPATH=src python3 -m balance_fundraising.cli blogger-checklist <lead_id>
+PYTHONPATH=src python3 -m balance_fundraising.cli blogger-draft <lead_id>
+```
+
+Blogger v1 works only with public pages/snippets and is без рассылок, личных сообщений, автокомментариев, private profile parsing, or external outreach. этический чек-лист must be reviewed by a human before any contact.
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -307,6 +321,7 @@ The first web UI is local-only. It shows:
 - `B2B` for company search, fit review, risk checks, and first-contact drafts;
 - `Услуги` for paid service offers, materials, gaps, owner, and review state;
 - `Мероприятия` for NKO markets, charity fairs, event leads, practical checklists, and post-report notes;
+- `Блогеры` for public bloggers, тематические сообщества, ethics checks, reputation risks, and collaboration drafts;
 - `Контакты и направления` for future B2B, paid services, events, bloggers, and donor campaign records;
 - opportunity list;
 - application list;
@@ -357,6 +372,19 @@ CLI equivalents are `offers`, `offer-add`, `offer-show`, `offer-status`, and `of
 7. Contact organizers, submit forms, publish announcements, and use materials only after human review outside the service.
 
 CLI equivalents are `event-radar`, `events`, `event-add`, `event-show`, and `event-checklist`. Event v1 is без складского учета, без продаж, без платежей, без расчета остатков, and without automatic applications or messages to organizers.
+
+### Блогеры: как проверить публичную коллаборацию
+
+1. Open "Блогеры".
+2. Choose a curated query or type a one-time query for psychology, mental health, neurodiversity, inclusion, HR/wellbeing, education, or charity collaborations.
+3. Keep the limit at `5` for early searches.
+4. Open a blogger/community card and paste public source text if the snippet is not enough.
+5. Check fit, risk flags, missing info, source snippets, and public contact.
+6. Use the ethical checklist to verify stigma, pressure on beneficiaries, consent for stories, reputation risks, values fit, and collaboration format.
+7. Read the collaboration draft as preparation material only.
+8. Do not send messages, comments, emails, Telegram posts, or partnership proposals until a human checks facts, tone, ethics, and FundWiki references.
+
+CLI equivalents are `blogger-radar`, `bloggers`, `blogger-add`, `blogger-show`, `blogger-analyze`, `blogger-checklist`, and `blogger-draft`. Blogger v1 is без рассылок, без личных сообщений, без автокомментариев, без закрытого парсинга профилей, and without personal beneficiary stories.
 
 ### Контакты и направления
 

@@ -47,6 +47,13 @@ class HarnessDocsTests(unittest.TestCase):
             "event-add",
             "event-show",
             "event-checklist",
+            "blogger-radar",
+            "bloggers",
+            "blogger-add",
+            "blogger-show",
+            "blogger-analyze",
+            "blogger-checklist",
+            "blogger-draft",
         ]:
             self.assertIn(command, readme)
         for env in [
@@ -171,6 +178,13 @@ class HarnessDocsTests(unittest.TestCase):
             "event-add",
             "event-checklist",
             "без складского учета",
+            "Блогеры",
+            "blogger-radar",
+            "blogger-add",
+            "blogger-checklist",
+            "blogger-draft",
+            "этический чек-лист",
+            "без рассылок",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

@@ -13,6 +13,8 @@ from balance_fundraising.adapters.web import (
     WebApp,
     add_opportunity,
     analyze_opportunity,
+    render_blogger_detail,
+    render_bloggers,
     render_b2b,
     render_b2b_detail,
     render_application_detail,
@@ -277,6 +279,43 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("ничего не отправляет", detail_html)
         self.assertIn("Новый маркет", review_html)
 
+    def test_bloggers_workspace_runs_radar_analyze_and_renders_draft(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store, blogger_search_client_factory=lambda: FakeBloggerSearchClient())
+            with patch.dict("os.environ", {}, clear=True):
+                status, html = app.render("/bloggers")
+            post_status, location = app.post("/bloggers/radar/run", {"query": "психология блог", "limit": "5"})
+            lead = store.list_leads()[0]
+            app.post(f"/bloggers/{lead.id}/owner", {"owner": "Анна"})
+            app.post(f"/bloggers/{lead.id}/status", {"status": "contact_planned", "review_state": "needs_review"})
+            app.post(f"/bloggers/{lead.id}/note", {"notes": "Проверить репутацию вручную"})
+            analyze_status, analyze_location = app.post(
+                f"/bloggers/{lead.id}/analyze",
+                {"source_text": "Автор пишет про психологию, ментальное здоровье и инклюзию. Есть форма обратной связи."},
+            )
+            bloggers_html = render_bloggers(store)
+            detail_html = render_blogger_detail(store, lead.id)
+            review_html = render_review_queue(store)
+            updated = store.get_lead(lead.id)
+        self.assertEqual(status, 200)
+        self.assertIn("Блогеры", html)
+        self.assertIn("Нужны Yandex-настройки", html)
+        self.assertEqual(post_status, 303)
+        self.assertEqual(location, "/bloggers")
+        self.assertEqual(analyze_status, 303)
+        self.assertEqual(analyze_location, f"/bloggers/{lead.id}")
+        self.assertEqual(updated.category, "blogger")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertIn("тематические сообщества", bloggers_html)
+        self.assertIn("Новый блог", bloggers_html)
+        self.assertIn("Карточка блогера", detail_html)
+        self.assertIn("Этический чек-лист", detail_html)
+        self.assertIn("Черновик предложения коллаборации", detail_html)
+        self.assertIn("ничего не отправляет", detail_html)
+        self.assertIn("Новый блог", review_html)
+
     def test_add_link_handler_creates_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = LocalJsonStore(Path(tmp) / "store.json")
@@ -346,6 +385,7 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/b2b")[0], 200)
             self.assertEqual(app.render("/offers")[0], 200)
             self.assertEqual(app.render("/events")[0], 200)
+            self.assertEqual(app.render("/bloggers")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -363,6 +403,10 @@ class WebUiTests(unittest.TestCase):
             event_id = event_location.rsplit("/", 1)[-1]
             self.assertEqual(event_status, 303)
             self.assertEqual(app.render(f"/events/{event_id}")[0], 200)
+            blogger_status, blogger_location = app.post("/leads", {"category": "blogger", "name": "Новый блог"})
+            blogger_id = blogger_location.rsplit("/", 1)[-1]
+            self.assertEqual(blogger_status, 303)
+            self.assertEqual(app.render(f"/bloggers/{blogger_id}")[0], 200)
             app.post(f"/opportunities/{opportunity_id}/analyze", {"source_text": "НКО. Нужна отчетность."})
             detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
         self.assertEqual(detail_status, 200)
@@ -551,6 +595,11 @@ class FakeB2BSearchClient:
 class FakeEventSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
         return [SearchResult(title="Новый маркет", url="https://events.example/market", snippet="НКО-маркеты принимают заявки")]
+
+
+class FakeBloggerSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="Новый блог", url="https://bloggers.example/psy", snippet="Психология и ментальное здоровье")]
 
 
 if __name__ == "__main__":

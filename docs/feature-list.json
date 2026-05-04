@@ -220,17 +220,17 @@
     ],
     "passes": true
   },
-  {
-    "id": "blogger-ambassador-agent",
-    "priority": 3,
-    "description": "Blogger and ambassador workflow with ethics checks, reputation risks, and human-reviewed collaboration drafts.",
+    {
+      "id": "blogger-ambassador-agent",
+      "priority": 3,
+      "description": "Blogger and ambassador workflow with ethics checks, reputation risks, and human-reviewed collaboration drafts.",
     "acceptance_steps": [
       "Blogger leads use the shared lead workspace.",
       "Risk checklist flags stigma, pressure, consent, and reputation issues.",
       "Templates avoid stigmatizing language."
     ],
-    "passes": false
-  },
+      "passes": true
+    },
   {
     "id": "private-donor-campaign-agent",
     "priority": 3,

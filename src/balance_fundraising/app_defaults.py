@@ -32,6 +32,15 @@ DEFAULT_EVENT_QUERIES = [
     "психопросвещение мероприятие партнеры",
 ]
 
+DEFAULT_BLOGGER_QUERIES = [
+    "психология блог благотворительная коллаборация",
+    "ментальное здоровье блогер НКО",
+    "нейроотличия инклюзия сообщество",
+    "HR wellbeing блог партнерство",
+    "образовательный блог психология эфир",
+    "благотворительный сбор блогер психическое здоровье",
+]
+
 DEFAULT_CURATED_SOURCES = [
     "https://dobro.mail.ru/funds/registration/",
     "https://corpcharity.help.yandex.ru/",

@@ -54,7 +54,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/b2b">B2B</a><a href="/offers">Услуги</a><a href="/events">Мероприятия</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/b2b">B2B</a><a href="/offers">Услуги</a><a href="/events">Мероприятия</a><a href="/bloggers">Блогеры</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -249,6 +249,44 @@ def render_event_page(
         "</section>",
     ]
     return render_layout("Мероприятия", "\n".join(body))
+
+
+def render_blogger_page(
+    *,
+    queries: Iterable[str],
+    activity: Iterable[ActivityLogEntry],
+    leads: Iterable[FundraisingLead],
+    yandex_configured: bool,
+) -> str:
+    query_options = "".join(f"<option value=\"{escape(query, quote=True)}\">{escape(query)}</option>" for query in queries)
+    warning = (
+        ""
+        if yandex_configured
+        else "<div class=\"callout\">Нужны Yandex-настройки для реального поиска блогеров: YANDEX_API_KEY и YANDEX_FOLDER_ID. Тесты и демо не вызывают внешний поиск.</div>"
+    )
+    runs = [item for item in activity if item.action in {"blogger_discover_run", "blogger_discover_error"}]
+    body = [
+        "<section>",
+        "<h2>Блогеры и амбассадоры</h2>",
+        "<p class=\"muted\">Публичные блогеры и тематические сообщества для бережных коллабораций. Система только готовит материалы для ручной проверки.</p>",
+        warning,
+        "<form method=\"post\" action=\"/bloggers/radar/run\">",
+        f"<label>Кураторский запрос <select name=\"selected_query\"><option value=\"\">Все запросы</option>{query_options}</select></label>",
+        "<label>Свой запрос на один запуск <input name=\"custom_query\" placeholder=\"Например: ментальное здоровье блогер НКО\"></label>",
+        "<label>Сколько результатов на запрос <input name=\"limit\" type=\"number\" min=\"1\" max=\"20\" value=\"5\"></label>",
+        "<button type=\"submit\">Запустить поиск блогеров</button>",
+        "</form>",
+        "</section>",
+        "<section>",
+        "<h2>Последние blogger-запуски</h2>",
+        render_activity_log(runs[-10:], empty_text="Поисков блогеров пока не было."),
+        "</section>",
+        "<section>",
+        "<h2>Blogger leads</h2>",
+        render_blogger_lead_table(leads, empty_text="Пока нет блогеров или сообществ."),
+        "</section>",
+    ]
+    return render_layout("Блогеры", "\n".join(body))
 
 
 def render_review_queue_page(opportunities: Iterable[Opportunity], leads: Iterable[FundraisingLead] = ()) -> str:
@@ -459,6 +497,51 @@ def render_event_detail_page(
         "</section>",
     ]
     return render_layout("Карточка мероприятия", "\n".join(body))
+
+
+def render_blogger_detail_page(
+    *,
+    lead: FundraisingLead,
+    checklist: str,
+    draft: str,
+    activity: Iterable[ActivityLogEntry],
+) -> str:
+    body = [
+        "<section>",
+        "<h2>Карточка блогера</h2>",
+        "<div class=\"callout\">Система ничего не отправляет наружу. Любой контакт, публикацию, личную историю и формулировку проверяет человек.</div>",
+        f"<p>{status_badge(lead_status_label(lead.status))} {review_badge(lead.review_state)}</p>",
+        fact_row("Название", lead.name),
+        fact_row("Организация/сообщество", lead.organization),
+        fact_row_html("Источник", link(lead.url) if lead.url else "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Описание", lead.description or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Почему подходит", lead.fit_for_fund),
+        fact_row("Публичный контакт", lead.contact or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Ответственный", lead.owner or "Не назначен"),
+        fact_row("Следующий шаг", lead.next_action),
+        fact_row("Проверить позже", lead.recheck_at or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Уверенность", f"{lead.confidence:.2f}"),
+        fact_row("Заметка", lead.notes or "Нет заметки"),
+        "</section>",
+        render_lead_actions(lead, target_base="/bloggers"),
+        "<section><h2>Риски</h2>" + render_list(lead.risk_flags, empty_text="Риски пока не отмечены.") + "</section>",
+        "<section><h2>Что неизвестно</h2>" + render_list(lead.missing_info, empty_text="Нет отмеченных пробелов.") + "</section>",
+        "<section><h2>Подтверждения</h2>" + render_evidence(lead.source_snippets) + "</section>",
+        render_blogger_analyze_form(lead.id),
+        "<section>",
+        "<h2>Этический чек-лист</h2>",
+        f"<pre>{escape(checklist)}</pre>",
+        "</section>",
+        "<section>",
+        "<h2>Черновик</h2>",
+        f"<pre>{escape(draft)}</pre>",
+        "</section>",
+        "<section>",
+        "<h2>История</h2>",
+        render_activity_log(activity, empty_text="История блогера пока пуста."),
+        "</section>",
+    ]
+    return render_layout("Карточка блогера", "\n".join(body))
 
 
 def render_service_offer_detail_page(
@@ -773,6 +856,29 @@ def render_event_lead_table(leads: Iterable[FundraisingLead], *, empty_text: str
     )
 
 
+def render_blogger_lead_table(leads: Iterable[FundraisingLead], *, empty_text: str) -> str:
+    rows = list(leads)
+    if not rows:
+        return f"<p class=\"muted\">{escape(empty_text)}</p>"
+    body_rows = []
+    for lead in rows:
+        body_rows.append(
+            "<tr>"
+            f"<td><a href=\"/bloggers/{escape(lead.id)}\">{escape(lead.name)}</a><br><span class=\"muted\">{escape(lead.organization)}</span></td>"
+            f"<td>{status_badge(lead_status_label(lead.status))}<br>{review_badge(lead.review_state)}</td>"
+            f"<td>{escape(lead.owner or 'Не назначен')}</td>"
+            f"<td>{escape(lead.recheck_at or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(lead.next_action)}</td>"
+            "</tr>"
+        )
+    return (
+        "<table>"
+        "<thead><tr><th>Блогер/сообщество</th><th>Состояние</th><th>Ответственный</th><th>Проверить</th><th>Следующее действие</th></tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+
+
 def render_service_offer_table(offers: Iterable[ServiceOffer], *, empty_text: str) -> str:
     rows = list(offers)
     if not rows:
@@ -1010,6 +1116,20 @@ def render_b2b_analyze_form(lead_id: str) -> str:
         f"<form method=\"post\" action=\"/b2b/{escape(lead_id)}/analyze\">"
         "<label>Текст источника"
         "<textarea name=\"source_text\" rows=\"7\" placeholder=\"Вставьте текст со страницы компании, описания CSR или контактов\"></textarea>"
+        "</label>"
+        "<button type=\"submit\">Разобрать</button>"
+        "</form>"
+        "</section>"
+    )
+
+
+def render_blogger_analyze_form(lead_id: str) -> str:
+    return (
+        "<section>"
+        "<h2>Разобрать публичный источник</h2>"
+        f"<form method=\"post\" action=\"/bloggers/{escape(lead_id)}/analyze\">"
+        "<label>Текст источника"
+        "<textarea name=\"source_text\" rows=\"7\" placeholder=\"Вставьте публичное описание блога, сообщества или коллаборации\"></textarea>"
         "</label>"
         "<button type=\"submit\">Разобрать</button>"
         "</form>"

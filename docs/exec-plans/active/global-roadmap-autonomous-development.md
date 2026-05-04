@@ -14,7 +14,7 @@ When starting a new roadmap session, read `AGENTS.md`, this plan, `docs/agent-pr
 - [x] `b2b-partner-agent`: company leads, fit analysis, risk checks, and human-reviewed first-contact drafts.
 - [x] `paid-services-agent`: reviewed offers for lectures, workshops, internships, and educational products.
 - [x] `events-merch-agent`: event/market lead workflow with practical checklist and post-report notes.
-- [ ] `blogger-ambassador-agent`: creator leads with ethics/risk checklist and safe collaboration drafts.
+- [x] `blogger-ambassador-agent`: creator leads with ethics/risk checklist and safe collaboration drafts.
 - [ ] `private-donor-campaign-agent`: segment-level donor campaigns without personal donor data.
 - [ ] `cross-agent-operator-dashboard`: unified dashboard, review queue, and digest across implemented modules.
 - [ ] `final-validation-and-hardening`: real-world validation, integration hardening, and UI/deployment decisions.

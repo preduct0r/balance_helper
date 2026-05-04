@@ -5,8 +5,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
-from balance_fundraising.app_defaults import DEFAULT_B2B_QUERIES, DEFAULT_DISCOVERY_QUERIES, DEFAULT_EVENT_QUERIES
+from balance_fundraising.app_defaults import DEFAULT_BLOGGER_QUERIES, DEFAULT_B2B_QUERIES, DEFAULT_DISCOVERY_QUERIES, DEFAULT_EVENT_QUERIES
 from balance_fundraising.adapters.web_templates import (
+    render_blogger_detail_page,
+    render_blogger_page,
     render_b2b_detail_page,
     render_b2b_page,
     render_application_detail_page,
@@ -46,6 +48,13 @@ from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService, sanitize_discovery_error
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.events import EventDiscoveryService, build_event_checklist, sanitize_event_error
+from balance_fundraising.services.bloggers import (
+    BloggerDiscoveryService,
+    analyze_blogger_lead,
+    build_blogger_collaboration_draft,
+    build_blogger_ethics_checklist,
+    sanitize_blogger_error,
+)
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key
 from balance_fundraising.services.leads import create_lead, update_lead_note, update_lead_owner, update_lead_status
 from balance_fundraising.services.offers import (
@@ -61,11 +70,20 @@ from balance_fundraising.services.readiness import build_readiness
 
 
 class WebApp:
-    def __init__(self, store, *, search_client_factory=None, b2b_search_client_factory=None, event_search_client_factory=None) -> None:
+    def __init__(
+        self,
+        store,
+        *,
+        search_client_factory=None,
+        b2b_search_client_factory=None,
+        event_search_client_factory=None,
+        blogger_search_client_factory=None,
+    ) -> None:
         self.store = store
         self.search_client_factory = search_client_factory or YandexSearchClient
         self.b2b_search_client_factory = b2b_search_client_factory or YandexSearchClient
         self.event_search_client_factory = event_search_client_factory or YandexSearchClient
+        self.blogger_search_client_factory = blogger_search_client_factory or YandexSearchClient
 
     def render(self, path: str) -> tuple[int, str]:
         parsed = urlparse(path)
@@ -99,6 +117,13 @@ class WebApp:
             if "/" in lead_id or not lead_id:
                 return 404, render_not_found()
             return 200, render_event_detail(self.store, lead_id)
+        if route == "/bloggers":
+            return 200, render_bloggers(self.store)
+        if route.startswith("/bloggers/"):
+            lead_id = unquote(route.removeprefix("/bloggers/")).strip("/")
+            if "/" in lead_id or not lead_id:
+                return 404, render_not_found()
+            return 200, render_blogger_detail(self.store, lead_id)
         if route == "/leads":
             return 200, render_leads(self.store)
         if route.startswith("/leads/"):
@@ -148,6 +173,9 @@ class WebApp:
         if route == "/events/radar/run":
             run_event_radar(self.store, self.event_search_client_factory, form)
             return 303, "/events"
+        if route == "/bloggers/radar/run":
+            run_blogger_radar(self.store, self.blogger_search_client_factory, form)
+            return 303, "/bloggers"
         b2b_action = _parse_b2b_action(route)
         if b2b_action is not None:
             lead_id, action_name = b2b_action
@@ -202,6 +230,25 @@ class WebApp:
             else:
                 return 404, render_not_found()
             return 303, f"/events/{lead_id}"
+        blogger_action = _parse_blogger_action(route)
+        if blogger_action is not None:
+            lead_id, action_name = blogger_action
+            if action_name == "analyze":
+                analyze_blogger_lead(self.store, lead_id, text=form.get("source_text", ""))
+            elif action_name == "status":
+                update_lead_status(
+                    self.store,
+                    lead_id,
+                    status=form.get("status", "needs_review"),
+                    review_state=form.get("review_state", "needs_review"),
+                )
+            elif action_name == "owner":
+                update_lead_owner(self.store, lead_id, form.get("owner", ""))
+            elif action_name == "note":
+                update_lead_note(self.store, lead_id, form.get("notes", ""))
+            else:
+                return 404, render_not_found()
+            return 303, f"/bloggers/{lead_id}"
         if route == "/leads":
             lead = create_lead(
                 self.store,
@@ -478,6 +525,34 @@ def run_event_radar(store, search_client_factory, form: Dict[str, str]) -> None:
     EventDiscoveryService(store, client).discover(queries, limit_per_query=limit)
 
 
+def render_bloggers(store) -> str:
+    return render_blogger_page(
+        queries=DEFAULT_BLOGGER_QUERIES,
+        activity=store.list_activity(),
+        leads=[item for item in store.list_leads() if item.category == "blogger"],
+        yandex_configured=bool(os.getenv("YANDEX_API_KEY") and os.getenv("YANDEX_FOLDER_ID")),
+    )
+
+
+def run_blogger_radar(store, search_client_factory, form: Dict[str, str]) -> None:
+    query = (form.get("custom_query", "").strip() or form.get("selected_query", "").strip() or form.get("query", "").strip())
+    raw_limit = form.get("limit", "5").strip()
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 5
+    limit = max(1, min(limit, 20))
+    queries = [query] if query else None
+    try:
+        client = search_client_factory()
+    except Exception as exc:
+        error = sanitize_blogger_error(str(exc))
+        store.add_activity(ActivityLogEntry.today(action="blogger_discover_error", entity_id="blogger", details=error))
+        store.add_activity(ActivityLogEntry.today(action="blogger_discover_run", entity_id="blogger", details=f"failed: {error}"))
+        return
+    BloggerDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+
+
 def render_opportunities(opportunities: Iterable[Opportunity]) -> str:
     return render_opportunity_list_page(opportunities)
 
@@ -529,6 +604,22 @@ def render_event_detail(store, lead_id: str) -> str:
     return render_event_detail_page(
         lead=lead,
         checklist=build_event_checklist(lead, store.list_fund_wiki()),
+        activity=activity,
+    )
+
+
+def render_blogger_detail(store, lead_id: str) -> str:
+    try:
+        lead = store.get_lead(lead_id)
+    except KeyError:
+        return render_not_found()
+    if lead.category != "blogger":
+        return render_not_found()
+    activity = [item for item in store.list_activity() if item.entity_id == lead.id]
+    return render_blogger_detail_page(
+        lead=lead,
+        checklist=build_blogger_ethics_checklist(lead, store.list_fund_wiki()),
+        draft=build_blogger_collaboration_draft(lead, store.list_fund_wiki()),
         activity=activity,
     )
 
@@ -671,6 +762,16 @@ def _parse_b2b_action(route: str) -> Optional[tuple[str, str]]:
 
 def _parse_event_action(route: str) -> Optional[tuple[str, str]]:
     if not route.startswith("/events/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) != 3:
+        return None
+    _, lead_id, action = parts
+    return unquote(lead_id), action
+
+
+def _parse_blogger_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/bloggers/"):
         return None
     parts = [part for part in route.split("/") if part]
     if len(parts) != 3:

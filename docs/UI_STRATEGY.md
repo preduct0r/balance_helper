@@ -119,6 +119,8 @@ Phase 4 has started with "Услуги": operators can create and review paid se
 
 Phase 4 now includes "Мероприятия": operators can run curated event search, review `event` leads, open a market/fair card, and use a practical participation checklist. The UI keeps the scope intentionally narrow: deadline, fee, documents, fund description, merch/materials, volunteer shifts, logistics, evidence, notes, and post-report prompts. It does not manage stock, payments, sales, volunteer scheduling, or external applications.
 
+Phase 4 now includes "Блогеры": operators can run curated public-blog/community search, review `blogger` leads, paste public source text for local analysis, check ethics/reputation risks, and read a human-reviewed collaboration draft. The UI keeps the no-outreach boundary explicit: no messages, comments, emails, Telegram posts, private profile parsing, or use of beneficiary personal stories.
+
 ## Engineering Implications
 
 - Keep service logic outside the UI so CLI, Telegram, and web screens reuse the same services.

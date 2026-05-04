@@ -30,6 +30,11 @@ class FakeEventSearchClient:
         return [SearchResult(title="Новый НКО-маркет", url="https://example.org/event", snippet="НКО могут участвовать с мерчом")]
 
 
+class FakeBloggerSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="Блог о психологии", url="https://example.org/blogger", snippet="Психология и ментальное здоровье")]
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         store = LocalJsonStore(Path(tmp) / "web-smoke-store.json")
@@ -39,6 +44,7 @@ def main() -> int:
             search_client_factory=lambda: FakeRadarSearchClient(),
             b2b_search_client_factory=lambda: FakeB2BSearchClient(),
             event_search_client_factory=lambda: FakeEventSearchClient(),
+            blogger_search_client_factory=lambda: FakeBloggerSearchClient(),
         )
         opportunity = add_opportunity(store, "https://example.org/opportunity")
         analyze_opportunity(
@@ -111,6 +117,13 @@ def main() -> int:
         event_lead = [item for item in store.list_leads() if item.url == "https://example.org/event"][0]
         app.post(f"/events/{event_lead.id}/owner", {"owner": "Оператор"})
         app.post(f"/events/{event_lead.id}/note", {"notes": "Проверить взнос и логистику."})
+        app.post("/bloggers/radar/run", {"query": "психология блог", "limit": "5"})
+        blogger_lead = [item for item in store.list_leads() if item.url == "https://example.org/blogger"][0]
+        app.post(
+            f"/bloggers/{blogger_lead.id}/analyze",
+            {"source_text": "Автор пишет про психологию, ментальное здоровье и инклюзию. Есть форма обратной связи."},
+        )
+        app.post(f"/bloggers/{blogger_lead.id}/owner", {"owner": "Оператор"})
         root_status, root_html = app.render("/")
         radar_status, radar_html = app.render("/radar")
         b2b_status, b2b_html = app.render("/b2b")
@@ -119,6 +132,8 @@ def main() -> int:
         offer_detail_status, offer_detail_html = app.render(f"/offers/{offer_id}")
         events_status, events_html = app.render("/events")
         event_detail_status, event_detail_html = app.render(f"/events/{event_lead.id}")
+        bloggers_status, bloggers_html = app.render("/bloggers")
+        blogger_detail_status, blogger_detail_html = app.render(f"/bloggers/{blogger_lead.id}")
         leads_status, leads_html = app.render("/leads")
         lead_detail_status, lead_detail_html = app.render(f"/leads/{lead.id}")
         applications_status, applications_html = app.render("/applications")
@@ -136,6 +151,8 @@ def main() -> int:
     assert offer_detail_status == 200
     assert events_status == 200
     assert event_detail_status == 200
+    assert bloggers_status == 200
+    assert blogger_detail_status == 200
     assert leads_status == 200
     assert lead_detail_status == 200
     assert applications_status == 200
@@ -157,6 +174,10 @@ def main() -> int:
     assert "Новый НКО-маркет" in event_detail_html
     assert "Чек-лист мероприятия" in event_detail_html
     assert "Мерч и материалы" in event_detail_html
+    assert "Блогеры" in bloggers_html
+    assert "Блог о психологии" in blogger_detail_html
+    assert "Этический чек-лист" in blogger_detail_html
+    assert "Черновик предложения коллаборации" in blogger_detail_html
     assert "Контакты и направления" in leads_html
     assert "Компания заботы" in lead_detail_html
     assert "ничего не отправляет" in lead_detail_html

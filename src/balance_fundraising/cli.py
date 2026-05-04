@@ -12,6 +12,13 @@ from balance_fundraising.clients.yandex_llm import YandexLLMClient
 from balance_fundraising.clients.yandex_search import YandexSearchClient
 from balance_fundraising.domain import ActivityLogEntry, Opportunity
 from balance_fundraising.services.b2b import B2BDiscoveryService, analyze_b2b_lead, build_b2b_draft
+from balance_fundraising.services.bloggers import (
+    BloggerDiscoveryService,
+    analyze_blogger_lead,
+    build_blogger_collaboration_draft,
+    build_blogger_ethics_checklist,
+    create_blogger_lead,
+)
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.applications import (
     create_application_for_opportunity,
@@ -56,12 +63,16 @@ def main(argv: list[str] | None = None) -> int:
     event_radar = subparsers.add_parser("event-radar")
     event_radar.add_argument("--query")
     event_radar.add_argument("--limit", type=int, default=10)
+    blogger_radar = subparsers.add_parser("blogger-radar")
+    blogger_radar.add_argument("--query")
+    blogger_radar.add_argument("--limit", type=int, default=10)
     subparsers.add_parser("doctor")
     subparsers.add_parser("seed-demo")
     subparsers.add_parser("applications")
     subparsers.add_parser("leads")
     subparsers.add_parser("offers")
     subparsers.add_parser("events")
+    subparsers.add_parser("bloggers")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -128,6 +139,24 @@ def main(argv: list[str] | None = None) -> int:
 
     event_checklist = subparsers.add_parser("event-checklist")
     event_checklist.add_argument("lead_id")
+
+    blogger_add = subparsers.add_parser("blogger-add")
+    blogger_add.add_argument("--name", required=True)
+    blogger_add.add_argument("--url", default="")
+    blogger_add.add_argument("--description", default="")
+
+    blogger_show = subparsers.add_parser("blogger-show")
+    blogger_show.add_argument("lead_id")
+
+    blogger_analyze = subparsers.add_parser("blogger-analyze")
+    blogger_analyze.add_argument("lead_id")
+    blogger_analyze.add_argument("--text-file")
+
+    blogger_checklist = subparsers.add_parser("blogger-checklist")
+    blogger_checklist.add_argument("lead_id")
+
+    blogger_draft = subparsers.add_parser("blogger-draft")
+    blogger_draft.add_argument("lead_id")
 
     offer_add = subparsers.add_parser("offer-add")
     offer_add.add_argument("--name", required=True)
@@ -202,6 +231,16 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"Event discovery {result.status}: created={result.created_count} existing={result.existing_count}")
         return 0
+    if args.command == "blogger-radar":
+        try:
+            service = BloggerDiscoveryService(store, YandexSearchClient())
+            queries = [args.query] if args.query else None
+            result = service.discover(queries, limit_per_query=args.limit)
+        except RuntimeError as exc:
+            print(f"Blogger discovery failed: {exc}")
+            return 1
+        print(f"Blogger discovery {result.status}: created={result.created_count} existing={result.existing_count}")
+        return 0
     if args.command == "seed-demo":
         created = seed_demo_store(store)
         print(f"Seeded demo with {created} opportunities")
@@ -222,6 +261,11 @@ def main(argv: list[str] | None = None) -> int:
         for lead in store.list_leads():
             if lead.category == "event":
                 print(f"{lead.id}\t{lead.name}\t{lead.status}\t{lead.deadline or '[НУЖНО УТОЧНИТЬ]'}\t{lead.next_action}")
+        return 0
+    if args.command == "bloggers":
+        for lead in store.list_leads():
+            if lead.category == "blogger":
+                print(f"{lead.id}\t{lead.name}\t{lead.status}\t{lead.recheck_at or '[НУЖНО УТОЧНИТЬ]'}\t{lead.next_action}")
         return 0
     if args.command == "application-create":
         application = create_application_for_opportunity(store, args.opportunity_id)
@@ -304,6 +348,39 @@ def main(argv: list[str] | None = None) -> int:
         if lead.category != "event":
             raise KeyError(args.lead_id)
         print(build_event_checklist(lead, store.list_fund_wiki()))
+        return 0
+    if args.command == "blogger-add":
+        lead = create_blogger_lead(store, name=args.name, url=args.url, description=args.description)
+        print(lead.id)
+        return 0
+    if args.command == "blogger-show":
+        lead = store.get_lead(args.lead_id)
+        if lead.category != "blogger":
+            raise KeyError(args.lead_id)
+        print(f"{lead.id}\tБлогеры и амбассадоры\t{lead.name}\t{lead_status_label(lead.status)}")
+        print(f"url: {lead.url or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"description: {lead.description or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"fit: {lead.fit_for_fund}")
+        print(f"contact: {lead.contact or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"owner: {lead.owner or 'Не назначен'}")
+        print(f"next_action: {lead.next_action}")
+        return 0
+    if args.command == "blogger-analyze":
+        text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else ""
+        lead = analyze_blogger_lead(store, args.lead_id, text=text)
+        print(f"Analyzed blogger {lead.id}: {lead.fit_for_fund}")
+        return 0
+    if args.command == "blogger-checklist":
+        lead = store.get_lead(args.lead_id)
+        if lead.category != "blogger":
+            raise KeyError(args.lead_id)
+        print(build_blogger_ethics_checklist(lead, store.list_fund_wiki()))
+        return 0
+    if args.command == "blogger-draft":
+        lead = store.get_lead(args.lead_id)
+        if lead.category != "blogger":
+            raise KeyError(args.lead_id)
+        print(build_blogger_collaboration_draft(lead, store.list_fund_wiki()))
         return 0
     if args.command == "offer-add":
         offer = create_service_offer(
