@@ -84,5 +84,17 @@
       "AGENTS.md, README.md, ROADMAP.md, and QUALITY.md point future agents to the UI strategy."
     ],
     "passes": true
+  },
+  {
+    "id": "operator-workflow",
+    "priority": 1,
+    "description": "A non-IT operator can run the first verified workflow with a selectable store backend, diagnostics, and offline smoke test.",
+    "acceptance_steps": [
+      "CLI supports --store-backend local|google and doctor.",
+      "Local smoke workflow exercises add-link, analyze, checklist, draft, and digest without external services.",
+      "README and docs/USAGE.md document doctor, BALANCE_STORE_BACKEND, --store-backend, and operator recipes.",
+      "docs/UI_STRATEGY.md ties the first web UI slice to the same operator workflow."
+    ],
+    "passes": true
   }
 ]

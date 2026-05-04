@@ -24,6 +24,7 @@ python3 -m venv .venv
 python -m pip install -r requirements-dev.txt
 PYTHONPATH=src python -m balance_fundraising.cli init-store
 PYTHONPATH=src python -m balance_fundraising.cli digest
+PYTHONPATH=src python -m balance_fundraising.cli doctor
 PYTHONPATH=src python scripts/dev_check.py
 ```
 
@@ -31,6 +32,7 @@ The default store is `data/local_store.json`. Override it with:
 
 ```bash
 export BALANCE_STORE_PATH=/path/to/store.json
+export BALANCE_STORE_BACKEND=local
 ```
 
 For detailed operator-facing usage instructions, see `docs/USAGE.md`.
@@ -41,6 +43,7 @@ For detailed operator-facing usage instructions, see `docs/USAGE.md`.
 - `YANDEX_FOLDER_ID`: Yandex Cloud folder id.
 - `YANDEX_LLM_MODEL_URI`: optional model URI or model path. Defaults to `yandexgpt/latest`.
 - `YANDEX_SEARCH_ENDPOINT`: optional override for the search endpoint.
+- `BALANCE_STORE_BACKEND`: `local` or `google`. Defaults to `local`.
 - `BALANCE_STORE_PATH`: optional local JSON store path.
 - `GOOGLE_SHEET_ID`: Google Sheet id for the production store.
 - `GOOGLE_SERVICE_ACCOUNT_FILE`: service account JSON file for Google Sheets.
@@ -50,6 +53,7 @@ For detailed operator-facing usage instructions, see `docs/USAGE.md`.
 
 ```bash
 PYTHONPATH=src python -m balance_fundraising.cli init-store
+PYTHONPATH=src python -m balance_fundraising.cli doctor
 PYTHONPATH=src python -m balance_fundraising.cli discover
 PYTHONPATH=src python -m balance_fundraising.cli add-link https://example.org/opportunity
 PYTHONPATH=src python -m balance_fundraising.cli analyze <opportunity_id>
@@ -58,6 +62,8 @@ PYTHONPATH=src python -m balance_fundraising.cli draft <opportunity_id>
 PYTHONPATH=src python -m balance_fundraising.cli digest
 PYTHONPATH=src python -m balance_fundraising.cli bot
 ```
+
+Use `--store-backend local|google` before the command to choose storage for that run.
 
 `analyze` can run without an LLM in deterministic heuristic mode. Set `--use-llm` to call Yandex LLM.
 

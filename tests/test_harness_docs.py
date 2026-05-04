@@ -10,9 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class HarnessDocsTests(unittest.TestCase):
     def test_readme_mentions_public_commands_and_env(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        for command in ["init-store", "discover", "add-link", "analyze", "checklist", "draft", "digest", "bot"]:
+        for command in ["init-store", "discover", "add-link", "analyze", "checklist", "draft", "digest", "bot", "doctor"]:
             self.assertIn(command, readme)
-        for env in ["YANDEX_API_KEY", "YANDEX_FOLDER_ID", "YANDEX_LLM_MODEL_URI", "TELEGRAM_BOT_TOKEN"]:
+        for env in ["YANDEX_API_KEY", "YANDEX_FOLDER_ID", "YANDEX_LLM_MODEL_URI", "TELEGRAM_BOT_TOKEN", "BALANCE_STORE_BACKEND"]:
             self.assertIn(env, readme)
 
     def test_agents_links_key_docs(self) -> None:
@@ -66,6 +66,7 @@ class HarnessDocsTests(unittest.TestCase):
         for phrase in [
             "Primary User",
             "non-IT",
+            "operator workflow",
             "Daily Dashboard",
             "Opportunity Detail",
             "Review Queue",
@@ -89,6 +90,8 @@ class HarnessDocsTests(unittest.TestCase):
             "Telegram Bot",
             "Google Sheets Store",
             "Human Review Boundary",
+            "Я нашла ссылку",
+            "BALANCE_STORE_BACKEND",
         ]:
             self.assertIn(phrase, usage)
 

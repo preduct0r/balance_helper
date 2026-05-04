@@ -4,7 +4,7 @@ import argparse
 import os
 from pathlib import Path
 
-from balance_fundraising.adapters.local_json_store import LocalJsonStore
+from balance_fundraising.adapters.store_factory import build_store_config, create_store
 from balance_fundraising.adapters.telegram_bot import TelegramCommandHandler, run_polling_bot
 from balance_fundraising.app_defaults import DEFAULT_STORE_PATH
 from balance_fundraising.clients.yandex_llm import YandexLLMClient
@@ -14,6 +14,7 @@ from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
+from balance_fundraising.services.doctor import doctor_has_errors, format_doctor_report, run_doctor
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.yandex_api import load_env_file
 
@@ -21,12 +22,14 @@ from balance_fundraising.yandex_api import load_env_file
 def main(argv: list[str] | None = None) -> int:
     load_env_file()
     parser = argparse.ArgumentParser(prog="balance-fundraising")
+    parser.add_argument("--store-backend", choices=["local", "google"], default=os.getenv("BALANCE_STORE_BACKEND", "local"))
     parser.add_argument("--store", default=os.getenv("BALANCE_STORE_PATH", DEFAULT_STORE_PATH))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("init-store")
     subparsers.add_parser("digest")
     subparsers.add_parser("discover")
+    subparsers.add_parser("doctor")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -45,11 +48,18 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("bot")
 
     args = parser.parse_args(argv)
-    store = LocalJsonStore(args.store)
+    store_config = build_store_config(backend=args.store_backend, local_path=args.store)
+
+    if args.command == "doctor":
+        checks = run_doctor(store_config)
+        print(format_doctor_report(checks))
+        return 1 if doctor_has_errors(checks) else 0
+
+    store = create_store(store_config)
     store.init_store()
 
     if args.command == "init-store":
-        print(f"Initialized store: {args.store}")
+        print(f"Initialized {store_config.backend} store")
         return 0
     if args.command == "add-link":
         opportunity = Opportunity.from_url(args.url)
@@ -93,4 +103,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

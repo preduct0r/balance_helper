@@ -37,6 +37,7 @@ Optional:
 YANDEX_LLM_MODEL_URI=yandexgpt/latest
 YANDEX_SEARCH_ENDPOINT=https://searchapi.api.cloud.yandex.net/v2/web/search
 BALANCE_STORE_PATH=data/local_store.json
+BALANCE_STORE_BACKEND=local
 GOOGLE_SHEET_ID=...
 GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
 TELEGRAM_BOT_TOKEN=...
@@ -58,7 +59,35 @@ By default, this creates `data/local_store.json` and seeds `FundWiki` with start
 BALANCE_STORE_PATH=/tmp/balance-store.json PYTHONPATH=src python3 -m balance_fundraising.cli init-store
 ```
 
-## 4. Basic Workflow
+Choose a backend for one command:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli --store-backend local init-store
+```
+
+Or set it globally:
+
+```bash
+BALANCE_STORE_BACKEND=local
+```
+
+## 4. Diagnose Setup
+
+Run:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli doctor
+```
+
+`doctor` checks local configuration, dependencies, `.env`, selected store backend, and optional Yandex/Google/Telegram settings. In local mode, missing external credentials are warnings, not failures.
+
+To check Google backend configuration without making real Google calls:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli --store-backend google doctor
+```
+
+## 5. Basic Workflow
 
 Add a link manually:
 
@@ -102,7 +131,72 @@ Show urgent actions:
 PYTHONPATH=src python3 -m balance_fundraising.cli digest
 ```
 
-## 5. Discovery Workflow
+Run the local operator smoke workflow:
+
+```bash
+PYTHONPATH=src python3 scripts/smoke_operator_workflow.py
+```
+
+It creates a temporary local store, adds a test link, analyzes a fixture, prints a checklist, prints a draft, and prints a digest.
+
+## 6. Operator Recipes
+
+### Я нашла ссылку, что делать?
+
+1. Add it:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli add-link https://example.org/opportunity
+```
+
+2. Copy the returned `opportunity_id`.
+3. Analyze it:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli analyze <opportunity_id>
+```
+
+4. Open the checklist:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli checklist <opportunity_id>
+```
+
+### Как понять, что заявка готова?
+
+Generate the checklist and check:
+
+- deadline is known or intentionally marked as missing;
+- required documents are listed;
+- missing items are resolved or assigned;
+- source snippets support key facts;
+- a human reviewed the draft.
+
+### Как проверить дедлайны?
+
+Run:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli digest
+```
+
+The digest shows overdue items, upcoming deadlines, and records with missing deadlines.
+
+### Как получить черновик?
+
+Run:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli draft <opportunity_id>
+```
+
+The draft uses only `FundWiki` facts. It is not ready for external use until a human edits and approves it.
+
+### Что делать, если вижу `[НУЖНО УТОЧНИТЬ]`?
+
+Treat it as a task, not an error. Check the source page, update `FundWiki` or the opportunity record, and regenerate the checklist or draft.
+
+## 7. Discovery Workflow
 
 Run Yandex Search discovery:
 
@@ -112,7 +206,7 @@ PYTHONPATH=src python3 -m balance_fundraising.cli discover
 
 Discovery uses the configured Yandex Search API and creates reviewable opportunity records. Newly discovered records are not treated as approved facts. A human must review them before external action.
 
-## 6. Telegram Bot
+## 8. Telegram Bot
 
 Set the bot token:
 
@@ -136,7 +230,7 @@ Supported commands:
 
 The bot command handlers are testable without Telegram. The polling runner requires the optional `python-telegram-bot` dependency.
 
-## 7. Google Sheets Store
+## 9. Google Sheets Store
 
 The production plan uses Google Sheets with these tabs:
 
@@ -149,6 +243,7 @@ The production plan uses Google Sheets with these tabs:
 Set:
 
 ```bash
+BALANCE_STORE_BACKEND=google
 GOOGLE_SHEET_ID=...
 GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
 ```
@@ -161,7 +256,7 @@ python -m pip install '.[google]'
 
 The local JSON store remains the required path for tests and offline development.
 
-## 8. Human Review Boundary
+## 10. Human Review Boundary
 
 The service never sends applications, emails, reports, or partner messages by itself. Generated checklists and drafts are working materials.
 
@@ -173,7 +268,7 @@ Before using generated text externally, a human must check:
 - consistency with `FundWiki`;
 - absence of personal beneficiary data.
 
-## 9. Updating This Guide
+## 11. Updating This Guide
 
 When a developer or agent changes service usage, update this file in the same change. This includes:
 
@@ -184,4 +279,3 @@ When a developer or agent changes service usage, update this file in the same ch
 - changed Yandex or Google setup;
 - changed human-review workflow;
 - changed troubleshooting steps.
-

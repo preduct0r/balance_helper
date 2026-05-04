@@ -33,7 +33,7 @@ The UI should prioritize repeated work and low cognitive load over visual specta
 
 ## First UI Slice
 
-The first UI should cover only the current MVP:
+The first UI should cover only the current MVP and mirror the operator workflow already exercised by the local smoke script: add a link, analyze it, review extracted facts, open a checklist, open a draft, and check the digest.
 
 - dashboard with urgent deadlines and overdue actions;
 - opportunity list with filters by status, deadline, type, and owner;
@@ -108,4 +108,3 @@ Add separate workspaces for B2B, private donors, bloggers, events, merch, and pa
 - Design stores and models so each extracted fact can keep evidence and review status.
 - Avoid implementing a large UI before the first real user workflow is validated.
 - When adding web UI, test it with realistic non-technical tasks, not only component snapshots.
-

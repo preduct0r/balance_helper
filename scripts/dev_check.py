@@ -14,6 +14,7 @@ def main() -> int:
         check_feature_list,
         check_docs_links,
         run_tests,
+        run_operator_smoke,
         run_cli_smoke,
     ]
     for check in checks:
@@ -35,6 +36,8 @@ def check_docs_links() -> None:
         "ARCHITECTURE.md",
         "docs/TESTING.md",
         "docs/QUALITY.md",
+        "docs/ROADMAP.md",
+        "docs/UI_STRATEGY.md",
         "docs/USAGE.md",
         "docs/exec-plans/active/mvp-platform-applications-agent.md",
         "docs/agent-progress.md",
@@ -51,6 +54,11 @@ def run_tests() -> None:
 def run_cli_smoke() -> None:
     env = _env()
     subprocess.run([sys.executable, "-m", "balance_fundraising.cli", "--help"], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
+
+
+def run_operator_smoke() -> None:
+    env = _env()
+    subprocess.run([sys.executable, "scripts/smoke_operator_workflow.py"], cwd=ROOT, env=env, check=True, stdout=subprocess.DEVNULL)
 
 
 def _env() -> dict[str, str]:
