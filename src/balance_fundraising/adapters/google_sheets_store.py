@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 from balance_fundraising.adapters.local_json_store import DEFAULT_FUND_WIKI, TABLES
-from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
 
 
 class GoogleSheetsStore:
@@ -49,6 +49,25 @@ class GoogleSheetsStore:
         self.upsert_opportunity(opportunity)
         return opportunity
 
+    def upsert_application(self, application: Application) -> None:
+        self._upsert_row("Applications", "id", application.to_dict())
+
+    def get_application(self, application_id: str) -> Application:
+        for application in self.list_applications():
+            if application.id == application_id:
+                return application
+        raise KeyError(f"Application not found: {application_id}")
+
+    def list_applications(self) -> List[Application]:
+        return [Application.from_dict(row) for row in self._records("Applications") if row.get("id")]
+
+    def update_application_fields(self, application_id: str, fields: Dict[str, object]) -> Application:
+        application = self.get_application(application_id)
+        for key, value in fields.items():
+            setattr(application, key, value)
+        self.upsert_application(application)
+        return application
+
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         return [FundWikiEntry.from_dict(row) for row in self._records("FundWiki") if row.get("key")]
 
@@ -59,6 +78,9 @@ class GoogleSheetsStore:
         worksheet = self._worksheet("ActivityLog")
         self._ensure_headers(worksheet, list(entry.to_dict().keys()))
         worksheet.append_row(list(entry.to_dict().values()))
+
+    def list_activity(self) -> List[ActivityLogEntry]:
+        return [ActivityLogEntry.from_dict(row) for row in self._records("ActivityLog")]
 
     def _open(self):
         if self._spreadsheet is None:

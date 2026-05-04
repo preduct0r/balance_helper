@@ -12,6 +12,7 @@ from balance_fundraising.clients.yandex_llm import YandexLLMClient
 from balance_fundraising.clients.yandex_search import YandexSearchClient
 from balance_fundraising.domain import ActivityLogEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
+from balance_fundraising.services.applications import create_application_for_opportunity, update_application_status
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
@@ -33,6 +34,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("discover")
     subparsers.add_parser("doctor")
     subparsers.add_parser("seed-demo")
+    subparsers.add_parser("applications")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -47,6 +49,13 @@ def main(argv: list[str] | None = None) -> int:
 
     draft = subparsers.add_parser("draft")
     draft.add_argument("opportunity_id")
+
+    application_create = subparsers.add_parser("application-create")
+    application_create.add_argument("opportunity_id")
+
+    application_status = subparsers.add_parser("application-status")
+    application_status.add_argument("application_id")
+    application_status.add_argument("status")
 
     subparsers.add_parser("bot")
 
@@ -83,6 +92,18 @@ def main(argv: list[str] | None = None) -> int:
         created = seed_demo_store(store)
         print(f"Seeded demo with {created} opportunities")
         return 0
+    if args.command == "applications":
+        for application in store.list_applications():
+            print(f"{application.id}\t{application.opportunity_id}\t{application.status}\t{application.next_action}")
+        return 0
+    if args.command == "application-create":
+        application = create_application_for_opportunity(store, args.opportunity_id)
+        print(application.id)
+        return 0
+    if args.command == "application-status":
+        application = update_application_status(store, args.application_id, args.status)
+        print(f"{application.id}: {application.status}")
+        return 0
     if args.command == "analyze":
         text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else None
         llm = YandexLLMClient() if args.use_llm else None
@@ -100,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
         print(build_application_draft(store.get_opportunity(args.opportunity_id), store.list_fund_wiki()))
         return 0
     if args.command == "digest":
-        print(build_digest(store.list_opportunities()))
+        print(build_digest(store.list_opportunities(), applications=store.list_applications()))
         return 0
     if args.command == "bot":
         token = os.getenv("TELEGRAM_BOT_TOKEN")

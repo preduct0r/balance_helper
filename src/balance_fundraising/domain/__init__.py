@@ -4,6 +4,7 @@ from balance_fundraising.domain.models import (
     DocumentRecord,
     FundWikiEntry,
     Opportunity,
+    application_id_for_opportunity,
     opportunity_id_for_url,
 )
 
@@ -13,6 +14,6 @@ __all__ = [
     "DocumentRecord",
     "FundWikiEntry",
     "Opportunity",
+    "application_id_for_opportunity",
     "opportunity_id_for_url",
 ]
-

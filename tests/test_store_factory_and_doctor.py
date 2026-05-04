@@ -87,6 +87,33 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("Seeded demo", output.getvalue())
         self.assertGreaterEqual(len(opportunities), 5)
 
+    def test_cli_application_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            store = LocalJsonStore(store_path)
+            store.init_store()
+            opportunity = store.list_opportunities()
+            self.assertEqual(opportunity, [])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                created = cli_main(["--store", str(store_path), "add-link", "https://example.org/app"])
+            self.assertEqual(created, 0)
+            opportunity_id = LocalJsonStore(store_path).list_opportunities()[0].id
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = cli_main(["--store", str(store_path), "application-create", opportunity_id])
+            application_id = output.getvalue().strip()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status_code = cli_main(["--store", str(store_path), "application-status", application_id, "waiting_response"])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                list_code = cli_main(["--store", str(store_path), "applications"])
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(status_code, 0)
+        self.assertEqual(list_code, 0)
+        self.assertIn("waiting_response", output.getvalue())
+
 
 class FakeStore:
     def __init__(self) -> None:

@@ -133,6 +133,24 @@ Show urgent actions:
 PYTHONPATH=src python3 -m balance_fundraising.cli digest
 ```
 
+Show application pipeline records:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli applications
+```
+
+Create an internal application record from an opportunity:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli application-create <opportunity_id>
+```
+
+Move an internal application to another stage:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli application-status <application_id> waiting_response
+```
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -180,13 +198,15 @@ The first web UI is local-only. It shows:
 
 - dashboard with urgent actions and missing deadlines;
 - opportunity list;
+- application list;
 - review queue;
 - `FundWiki` / Паспорт фонда;
+- "Первый прогон" validation screen;
 - opportunity detail;
 - checklist;
 - draft;
 - readiness block for "Подготовить заявку";
-- safe operator actions: status, review state, owner, notes, checklist done, application readiness;
+- safe operator actions: status, review state, owner, notes, checklist done, application readiness, internal application stage, application dates, and application notes;
 - local heuristic analysis from pasted text or the source URL.
 
 It does not send applications, emails, reports, or partner messages.
@@ -198,20 +218,23 @@ It does not send applications, emails, reports, or partner messages.
 3. Open an opportunity card.
 4. Check "Готовность заявки" first: it shows missing documents, missing deadline, low confidence, and FundWiki gaps.
 5. Open "Паспорт фонда" when the card says that reusable facts are missing.
-6. Check "Что неизвестно" and "Подтверждения".
-7. Assign an owner if the next step belongs to someone.
-8. Save a note when context would otherwise live in chat.
-9. Mark checklist items done only after checking the real source or document.
-10. Treat every draft as preparation material until a human approves it.
+6. Create a "Заявка" record only when the team is actually preparing this opportunity.
+7. Check "Что неизвестно" and "Подтверждения".
+8. Assign an owner if the next step belongs to someone.
+9. Save a note when context would otherwise live in chat.
+10. Mark checklist items done only after checking the real source or document.
+11. Treat every draft as preparation material until a human approves it.
 
 ### Training scenario without risk
 
 1. Run `seed-demo`.
 2. Start `web`.
-3. Open "Проверка" and choose a demo opportunity.
-4. Open "Паспорт фонда" and fill one missing block, for example "Социальный результат".
-5. Return to the opportunity and check "Готовность заявки".
-6. Change readiness to "Готовим документы" or "Готово к ручной проверке" only if the remaining blockers make sense to a human.
+3. Open "Первый прогон" and read the checklist before touching real records.
+4. Open "Проверка" and choose a demo opportunity.
+5. Open "Паспорт фонда" and fill one missing block, for example "Социальный результат".
+6. Return to the opportunity and check "Готовность заявки".
+7. Create or open the "Заявка" block and move only internal stages.
+8. Change readiness to "Готовим документы" or "Готово к ручной проверке" only if the remaining blockers make sense to a human.
 
 ### First real-world smoke checklist
 
@@ -222,8 +245,9 @@ Use this for the first пользовательский прогон with a real
 3. Check deadline, documents, unknowns, and source snippets.
 4. Open "Паспорт фонда" and fill only facts that are already confirmed by fund materials.
 5. Return to "Готовность заявки" and assign owners for every blocker.
-6. Generate/read the draft, but do not send it externally.
-7. Record what was confusing, missing, or excessive in `docs/agent-progress.md` before the next development step.
+6. Create a "Заявка" record and set the current internal stage.
+7. Generate/read the draft, but do not send it externally.
+8. Open "Первый прогон" and record what was confusing, missing, or excessive in the feedback form before the next development step.
 
 ## 7. Operator Recipes
 
@@ -283,6 +307,35 @@ The draft uses only `FundWiki` facts. It is not ready for external use until a h
 ### Что делать, если вижу `[НУЖНО УТОЧНИТЬ]`?
 
 Treat it as a task, not an error. Check the source page, update `FundWiki` or the opportunity record, and regenerate the checklist or draft.
+
+### мы реально подаём заявку, как вести процесс?
+
+1. Open the opportunity in the web UI.
+2. Check "Готовность заявки" and resolve or assign every blocker.
+3. In the "Заявка" block, click "Создать заявку".
+4. Set the internal stage to "Готовим заявку".
+5. Fill owner, next known dates, and a short note with the real next step.
+6. Move the stage to "Готово к ручной проверке" only after a person checks the source, documents, checklist, and draft.
+7. Keep using the digest and `/applications` page to avoid losing response or reporting dates.
+
+### заявку уже отправил человек, что отметить?
+
+1. Open the application block.
+2. Set the stage to "Человек уже подал заявку".
+3. Fill "Кто подал" and "Дата подачи".
+4. Add "Срок ответа" if the platform gives one.
+5. Save a note with where the confirmation lives.
+
+The system only records the fact. It does not submit the application and does not contact the platform.
+
+### нужен отчёт, как не потерять срок?
+
+1. Open the application block.
+2. Set the stage to "Нужен отчет".
+3. Fill "Срок отчета".
+4. Assign an owner.
+5. Save a note with report requirements or a link to the source.
+6. Check `digest` or the `/applications` page regularly until the report is done.
 
 ## 8. Discovery Workflow
 

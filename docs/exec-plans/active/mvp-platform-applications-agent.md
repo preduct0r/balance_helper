@@ -26,6 +26,7 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - [x] Add first local web UI for the operator workflow.
 - [x] Add UX-focused review/edit workspace on top of the local web UI.
 - [x] Add FundWiki passport editing, readiness blockers, and local demo seed workflow.
+- [x] Add first-run validation screen and guided internal application pipeline.
 
 ## Done Means
 
@@ -36,3 +37,4 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - `scripts/smoke_operator_workflow.py` completes without external services.
 - `scripts/smoke_web_render.py` completes without external services.
 - `seed-demo` creates a local training dataset without external services.
+- Operators can create and update internal application records without any external sends.

@@ -10,7 +10,22 @@ ROOT = Path(__file__).resolve().parents[1]
 class HarnessDocsTests(unittest.TestCase):
     def test_readme_mentions_public_commands_and_env(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        for command in ["init-store", "discover", "add-link", "analyze", "checklist", "draft", "digest", "bot", "doctor", "web", "seed-demo"]:
+        for command in [
+            "init-store",
+            "discover",
+            "add-link",
+            "analyze",
+            "checklist",
+            "draft",
+            "digest",
+            "bot",
+            "doctor",
+            "web",
+            "seed-demo",
+            "applications",
+            "application-create",
+            "application-status",
+        ]:
             self.assertIn(command, readme)
         for env in [
             "YANDEX_API_KEY",
@@ -106,6 +121,9 @@ class HarnessDocsTests(unittest.TestCase):
             "Web scenario for a non-IT operator",
             "Паспорт фонда",
             "тренировочный",
+            "мы реально подаём заявку",
+            "заявку уже отправил человек",
+            "нужен отчёт",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

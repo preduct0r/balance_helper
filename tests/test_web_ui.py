@@ -12,6 +12,7 @@ from balance_fundraising.adapters.web import (
     WebApp,
     add_opportunity,
     analyze_opportunity,
+    render_applications,
     render_dashboard,
     render_fund_wiki,
     render_opportunity_detail,
@@ -178,6 +179,8 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/")[0], 200)
             self.assertEqual(app.render("/review")[0], 200)
             self.assertEqual(app.render("/fund-wiki")[0], 200)
+            self.assertEqual(app.render("/applications")[0], 200)
+            self.assertEqual(app.render("/first-run")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -202,6 +205,52 @@ class WebUiTests(unittest.TestCase):
             store.upsert_opportunity(opportunity)
             html = render_opportunity_detail(store, opportunity.id)
         self.assertIn("Можно готовить к ручной проверке", html)
+
+    def test_application_pipeline_web_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = add_opportunity(store, "https://example.org/application")
+            opportunity.name = "Площадка для заявки"
+            store.upsert_opportunity(opportunity)
+            app = WebApp(store)
+            status, location = app.post(f"/opportunities/{opportunity.id}/application", {})
+            application = store.list_applications()[0]
+            app.post(
+                f"/applications/{application.id}/status",
+                {"status": "submitted_by_human", "owner": "Анна", "submitted_by": "Анна"},
+            )
+            app.post(
+                f"/applications/{application.id}/dates",
+                {"response_due_at": "2026-06-01", "reporting_due_at": "2026-07-01", "recheck_at": "2026-05-15"},
+            )
+            app.post(f"/applications/{application.id}/note", {"notes": "Подано человеком через форму"})
+            applications_html = render_applications(store)
+            detail_html = render_opportunity_detail(store, opportunity.id)
+            updated = store.get_application(application.id)
+        self.assertEqual(status, 303)
+        self.assertEqual(location, f"/opportunities/{opportunity.id}")
+        self.assertEqual(updated.status, "submitted_by_human")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(updated.response_due_at, "2026-06-01")
+        self.assertIn("Заявки", applications_html)
+        self.assertIn("Площадка для заявки", applications_html)
+        self.assertIn("человек уже подал заявку", detail_html)
+        self.assertIn("Система ничего не отправляла", detail_html)
+
+    def test_first_run_feedback_is_logged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store)
+            status, location = app.post(
+                "/first-run/feedback",
+                {"feedback": "Непонятно, где смотреть отчетность"},
+            )
+            activity = store.list_activity()
+        self.assertEqual(status, 303)
+        self.assertEqual(location, "/first-run")
+        self.assertTrue(any(item.action == "operator_feedback" for item in activity))
 
 
 if __name__ == "__main__":

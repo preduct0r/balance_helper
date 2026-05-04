@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from balance_fundraising.domain import ActivityLogEntry, Opportunity
+from balance_fundraising.services.applications import create_application_for_opportunity, update_application_dates, update_application_status
 
 
 def seed_demo_store(store) -> int:
@@ -60,6 +61,9 @@ def seed_demo_store(store) -> int:
     for opportunity in opportunities:
         store.upsert_opportunity(opportunity)
         store.add_activity(ActivityLogEntry.today(action="seed_demo", entity_id=opportunity.id, details=opportunity.name))
+    training = create_application_for_opportunity(store, opportunities[0].id)
+    update_application_status(store, training.id, "preparing", owner="Оператор")
+    update_application_dates(store, training.id, recheck_at="2026-05-15")
     return len(opportunities)
 
 

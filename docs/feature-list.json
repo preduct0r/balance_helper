@@ -134,5 +134,18 @@
       "README, docs/USAGE.md, docs/UI_STRATEGY.md, and web smoke checks document the FundWiki/readiness workflow."
     ],
     "passes": true
+  },
+  {
+    "id": "application-pipeline-guided-workflow",
+    "priority": 1,
+    "description": "Operator can run a real application workflow through internal application stages, deadlines, notes, and first-run feedback without external sends.",
+    "acceptance_steps": [
+      "Application records can be created from opportunities and keep opportunity_id linkage.",
+      "Web UI exposes /applications plus opportunity application actions for status, dates, owner, and notes.",
+      "Digest includes overdue response, reporting, recheck, and missing-owner application items.",
+      "First-run validation screen records operator observations in ActivityLog.",
+      "README, docs/USAGE.md, docs/UI_STRATEGY.md, and smoke checks document the guided application pipeline."
+    ],
+    "passes": true
   }
 ]

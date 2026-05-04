@@ -5,7 +5,9 @@ from typing import Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 from balance_fundraising.adapters.web_templates import (
+    render_applications_page,
     render_dashboard_page,
+    render_first_run_page,
     render_fund_wiki_page,
     render_message,
     render_not_found,
@@ -15,6 +17,12 @@ from balance_fundraising.adapters.web_templates import (
 )
 from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
+from balance_fundraising.services.applications import (
+    create_application_for_opportunity,
+    update_application_dates,
+    update_application_note,
+    update_application_status,
+)
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.draft import build_application_draft
@@ -33,10 +41,14 @@ class WebApp:
             return 200, render_dashboard(self.store)
         if route == "/opportunities":
             return 200, render_opportunities(self.store.list_opportunities())
+        if route == "/applications":
+            return 200, render_applications(self.store)
         if route == "/review":
             return 200, render_review_queue(self.store)
         if route == "/fund-wiki":
             return 200, render_fund_wiki(self.store)
+        if route == "/first-run":
+            return 200, render_first_run()
         if route.startswith("/opportunities/"):
             opportunity_id = unquote(route.removeprefix("/opportunities/")).strip("/")
             if "/" in opportunity_id or not opportunity_id:
@@ -56,6 +68,35 @@ class WebApp:
         if route == "/fund-wiki":
             update_fund_wiki(self.store, form)
             return 303, "/fund-wiki"
+        if route == "/first-run/feedback":
+            add_operator_feedback(self.store, form.get("feedback", ""))
+            return 303, "/first-run"
+        application_action = _parse_application_action(route)
+        if application_action is not None:
+            application_id, action_name = application_action
+            if action_name == "status":
+                update_application_status(
+                    self.store,
+                    application_id,
+                    form.get("status", "preparing"),
+                    owner=form.get("owner", ""),
+                    submitted_by=form.get("submitted_by", ""),
+                )
+            elif action_name == "dates":
+                update_application_dates(
+                    self.store,
+                    application_id,
+                    submitted_at=form.get("submitted_at", ""),
+                    response_due_at=form.get("response_due_at", ""),
+                    reporting_due_at=form.get("reporting_due_at", ""),
+                    recheck_at=form.get("recheck_at", ""),
+                )
+            elif action_name == "note":
+                update_application_note(self.store, application_id, form.get("notes", ""))
+            else:
+                return 404, render_not_found()
+            application = self.store.get_application(application_id)
+            return 303, f"/opportunities/{application.opportunity_id}"
         action = _parse_opportunity_action(route)
         if action is None:
             return 404, render_not_found()
@@ -73,6 +114,8 @@ class WebApp:
             mark_checklist_done(self.store, opportunity_id, form.get("item", ""))
         elif action_name == "readiness":
             update_readiness(self.store, opportunity_id, form.get("readiness_state", ""))
+        elif action_name == "application":
+            create_application_for_opportunity(self.store, opportunity_id)
         else:
             return 404, render_not_found()
         return 303, f"/opportunities/{opportunity_id}"
@@ -153,6 +196,12 @@ def update_fund_wiki(store, form: Dict[str, str]) -> None:
         store.add_activity(ActivityLogEntry.today(action="fund_wiki", entity_id=field.key, details=review_state))
 
 
+def add_operator_feedback(store, feedback: str) -> None:
+    value = feedback.strip()
+    if value:
+        store.add_activity(ActivityLogEntry.today(action="operator_feedback", entity_id="first-run", details=value))
+
+
 def render_dashboard(store) -> str:
     opportunities = store.list_opportunities()
     missing_deadlines = [item for item in opportunities if not item.deadline]
@@ -162,12 +211,16 @@ def render_dashboard(store) -> str:
         needs_review=needs_review,
         missing_deadlines=missing_deadlines,
         drafts_with_gaps=drafts_with_gaps,
-        digest_text=build_digest(opportunities),
+        digest_text=build_digest(opportunities, applications=store.list_applications()),
     )
 
 
 def render_opportunities(opportunities: Iterable[Opportunity]) -> str:
     return render_opportunity_list_page(opportunities)
+
+
+def render_applications(store) -> str:
+    return render_applications_page(store.list_applications(), store.list_opportunities())
 
 
 def render_review_queue(store) -> str:
@@ -192,11 +245,16 @@ def render_opportunity_detail(store, opportunity_id: str) -> str:
         checklist_items.append("Уточнить дедлайн")
     return render_opportunity_detail_page(
         opportunity=opportunity,
+        applications=[item for item in store.list_applications() if item.opportunity_id == opportunity.id],
         checklist=checklist,
         draft=draft,
         checklist_items=checklist_items,
         readiness=build_readiness(opportunity, wiki_entries),
     )
+
+
+def render_first_run() -> str:
+    return render_first_run_page()
 
 
 def review_queue_items(opportunities: Iterable[Opportunity]) -> List[Opportunity]:
@@ -215,6 +273,16 @@ def _parse_opportunity_action(route: str) -> Optional[tuple[str, str]]:
         return None
     _, opportunity_id, action = parts
     return unquote(opportunity_id), action
+
+
+def _parse_application_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/applications/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) != 3:
+        return None
+    _, application_id, action = parts
+    return unquote(application_id), action
 
 
 def make_handler(app: WebApp):

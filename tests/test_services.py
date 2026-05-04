@@ -9,7 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
-from balance_fundraising.domain import FundWikiEntry, Opportunity
+from balance_fundraising.domain import Application, FundWikiEntry, Opportunity
+from balance_fundraising.services.applications import create_application_for_opportunity, update_application_status
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
@@ -96,6 +97,48 @@ class ServiceTests(unittest.TestCase):
         self.assertGreaterEqual(len(opportunities), 5)
         self.assertTrue(any("VK Добро" in item.name for item in opportunities))
         self.assertTrue(any(item.deadline == "2026-04-12" for item in opportunities))
+
+    def test_application_from_dict_preserves_pipeline_defaults(self) -> None:
+        application = Application.from_dict({"id": "app_1", "opportunity_id": "opp_1"})
+        self.assertEqual(application.status, "preparing")
+        self.assertEqual(application.owner, "")
+        self.assertEqual(application.next_action, "Подготовить заявку")
+
+    def test_application_created_from_opportunity_and_status_logged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = Opportunity.from_url("https://example.org/app")
+            opportunity.name = "Тестовая заявка"
+            store.upsert_opportunity(opportunity)
+            application = create_application_for_opportunity(store, opportunity.id)
+            updated = update_application_status(store, application.id, "submitted_by_human")
+            stored = store.get_application(application.id)
+        self.assertEqual(application.opportunity_id, opportunity.id)
+        self.assertEqual(stored.status, "submitted_by_human")
+        self.assertEqual(updated.next_action, "Ждать ответ или зафиксировать срок ответа")
+
+    def test_digest_includes_application_deadlines_and_missing_owner(self) -> None:
+        opportunity = Opportunity.from_url("https://example.org/app")
+        opportunity.name = "Площадка"
+        application = Application(
+            id="app_1",
+            opportunity_id=opportunity.id,
+            status="waiting_response",
+            response_due_at="2026-04-12",
+        )
+        report = Application(
+            id="app_2",
+            opportunity_id="opp_report",
+            status="reporting_needed",
+            reporting_due_at="2026-05-05",
+            owner="Анна",
+        )
+        digest = build_digest([opportunity], applications=[application, report], today=date(2026, 4, 26))
+        self.assertIn("app_1", digest)
+        self.assertIn("ответ просрочен", digest)
+        self.assertIn("нет ответственного", digest)
+        self.assertIn("отчет до 2026-05-05", digest)
 
 
 if __name__ == "__main__":

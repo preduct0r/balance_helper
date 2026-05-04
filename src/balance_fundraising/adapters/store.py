@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Protocol
 
-from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
 
 
 class Store(Protocol):
@@ -21,6 +21,18 @@ class Store(Protocol):
     def update_opportunity_fields(self, opportunity_id: str, fields: Dict[str, object]) -> Opportunity:
         ...
 
+    def upsert_application(self, application: Application) -> None:
+        ...
+
+    def get_application(self, application_id: str) -> Application:
+        ...
+
+    def list_applications(self) -> List[Application]:
+        ...
+
+    def update_application_fields(self, application_id: str, fields: Dict[str, object]) -> Application:
+        ...
+
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         ...
 
@@ -30,3 +42,5 @@ class Store(Protocol):
     def add_activity(self, entry: ActivityLogEntry) -> None:
         ...
 
+    def list_activity(self) -> List[ActivityLogEntry]:
+        ...

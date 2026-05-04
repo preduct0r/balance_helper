@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.google_sheets_store import GoogleSheetsStore
-from balance_fundraising.domain import FundWikiEntry
+from balance_fundraising.domain import Application, FundWikiEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,6 +44,18 @@ class ExampleAndAdapterTests(unittest.TestCase):
             entries = {entry.key: entry for entry in store.list_fund_wiki()}
         self.assertEqual(entries["impact"].value, "100 участников")
         self.assertEqual(entries["impact"].owner, "Анна")
+
+    def test_google_sheets_application_methods(self) -> None:
+        spreadsheet = FakeSpreadsheet()
+        store = GoogleSheetsStore("sheet", "service.json")
+        with patch.object(store, "_open", return_value=spreadsheet):
+            store.init_store()
+            application = Application(id="app_1", opportunity_id="opp_1", owner="Анна")
+            store.upsert_application(application)
+            updated = store.update_application_fields("app_1", {"status": "waiting_response"})
+            applications = store.list_applications()
+        self.assertEqual(updated.status, "waiting_response")
+        self.assertEqual(applications[0].owner, "Анна")
 
 
 class FakeWorksheet:

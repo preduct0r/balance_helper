@@ -11,6 +11,11 @@ def opportunity_id_for_url(url: str) -> str:
     return f"opp_{digest}"
 
 
+def application_id_for_opportunity(opportunity_id: str) -> str:
+    digest = hashlib.sha1(opportunity_id.encode("utf-8")).hexdigest()[:10]
+    return f"app_{digest}"
+
+
 @dataclass
 class Opportunity:
     id: str
@@ -93,11 +98,33 @@ def _coerce_float(value: Any) -> float:
 class Application:
     id: str
     opportunity_id: str
-    status: str = "not_started"
+    status: str = "preparing"
     submitted_at: Optional[str] = None
     response_due_at: Optional[str] = None
     reporting_due_at: Optional[str] = None
+    recheck_at: Optional[str] = None
+    owner: str = ""
+    next_action: str = "Подготовить заявку"
+    submitted_by: str = ""
+    status_updated_at: Optional[str] = None
     notes: str = ""
+
+    @classmethod
+    def from_opportunity(cls, opportunity_id: str) -> "Application":
+        return cls(id=application_id_for_opportunity(opportunity_id), opportunity_id=opportunity_id)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Application":
+        values = dict(data)
+        payload: Dict[str, Any] = {}
+        for field_name, field_info in cls.__dataclass_fields__.items():
+            if field_name not in values:
+                continue
+            value = values[field_name]
+            if value is None and field_info.default is not MISSING:
+                continue
+            payload[field_name] = value
+        return cls(**payload)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -151,6 +178,19 @@ class ActivityLogEntry:
     @classmethod
     def today(cls, *, action: str, entity_id: str, details: str = "") -> "ActivityLogEntry":
         return cls(timestamp=date.today().isoformat(), action=action, entity_id=entity_id, details=details)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ActivityLogEntry":
+        values = dict(data)
+        payload: Dict[str, Any] = {}
+        for field_name, field_info in cls.__dataclass_fields__.items():
+            if field_name not in values:
+                continue
+            value = values[field_name]
+            if value is None and field_info.default is not MISSING:
+                continue
+            payload[field_name] = value
+        return cls(**payload)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

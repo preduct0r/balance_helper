@@ -4,7 +4,8 @@ from html import escape
 from typing import Iterable, List
 
 from balance_fundraising.adapters.web_static import WEB_CSS
-from balance_fundraising.domain import FundWikiEntry, Opportunity
+from balance_fundraising.domain import Application, FundWikiEntry, Opportunity
+from balance_fundraising.services.applications import APPLICATION_STATUS_LABELS, application_status_label
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key, fund_wiki_label
 from balance_fundraising.services.readiness import ReadinessReport
 
@@ -44,7 +45,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/opportunities">Возможности</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -114,6 +115,40 @@ def render_review_queue_page(opportunities: Iterable[Opportunity]) -> str:
     return render_layout("Проверка", "\n".join(body))
 
 
+def render_applications_page(applications: Iterable[Application], opportunities: Iterable[Opportunity]) -> str:
+    body = [
+        "<section>",
+        "<h2>Заявки</h2>",
+        "<p class=\"muted\">Здесь фиксируется только внутренняя работа. Система ничего не отправляет наружу.</p>",
+        render_application_table(applications, opportunities, empty_text="Пока нет заявок."),
+        "</section>",
+    ]
+    return render_layout("Заявки", "\n".join(body))
+
+
+def render_first_run_page() -> str:
+    checklist = [
+        "Добавить одну реальную ссылку или открыть демо-возможность.",
+        "Разобрать страницу и проверить факты рядом с подтверждениями.",
+        "Заполнить недостающие блоки в паспорте фонда.",
+        "Открыть готовность заявки и назначить ответственных за пробелы.",
+        "Создать заявку и довести ее до ручной проверки.",
+        "Записать наблюдения: что непонятно, чего не хватает, что лишнее.",
+    ]
+    body = [
+        "<section>",
+        "<h2>Первый прогон</h2>",
+        "<p class=\"muted\">Этот сценарий помогает проверить сервис с оператором без внешних отправок.</p>",
+        render_list(checklist, empty_text="Сценарий пока не задан."),
+        "<form method=\"post\" action=\"/first-run/feedback\">",
+        "<label>Наблюдения оператора<textarea name=\"feedback\" rows=\"5\" placeholder=\"Что было непонятно, чего не хватило, что оказалось лишним\"></textarea></label>",
+        "<button type=\"submit\">Сохранить наблюдение</button>",
+        "</form>",
+        "</section>",
+    ]
+    return render_layout("Первый прогон", "\n".join(body))
+
+
 def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
     by_key = fund_wiki_by_key(entries)
     rows = []
@@ -141,6 +176,7 @@ def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
 def render_opportunity_detail_page(
     *,
     opportunity: Opportunity,
+    applications: List[Application],
     checklist: str,
     draft: str,
     checklist_items: List[str],
@@ -160,6 +196,7 @@ def render_opportunity_detail_page(
         "</section>",
         render_operator_actions(opportunity),
         render_readiness_block(opportunity, readiness),
+        render_opportunity_applications(opportunity, applications),
         "<section>",
         "<h2>Что это</h2>",
         render_list(opportunity.eligibility, empty_text="[НУЖНО УТОЧНИТЬ] Требования к участию"),
@@ -280,6 +317,37 @@ def render_opportunity_table(opportunities: Iterable[Opportunity], *, empty_text
     )
 
 
+def render_application_table(
+    applications: Iterable[Application],
+    opportunities: Iterable[Opportunity],
+    *,
+    empty_text: str,
+) -> str:
+    rows = list(applications)
+    if not rows:
+        return f"<p class=\"muted\">{escape(empty_text)}</p>"
+    opportunity_names = {item.id: item.name for item in opportunities}
+    body_rows = []
+    for application in rows:
+        opportunity_name = opportunity_names.get(application.opportunity_id, application.opportunity_id)
+        body_rows.append(
+            "<tr>"
+            f"<td>{escape(opportunity_name)}<br><span class=\"muted\">{escape(application.id)}</span></td>"
+            f"<td>{status_badge(application_status_label(application.status))}</td>"
+            f"<td>{escape(application.owner or 'Не назначен')}</td>"
+            f"<td>{escape(application.response_due_at or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(application.reporting_due_at or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(application.next_action)}</td>"
+            "</tr>"
+        )
+    return (
+        "<table>"
+        "<thead><tr><th>Возможность</th><th>Стадия</th><th>Ответственный</th><th>Ответ</th><th>Отчет</th><th>Следующий шаг</th></tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+
+
 def render_checklist_items(opportunity: Opportunity, items: Iterable[str]) -> str:
     values = [item for item in items if item]
     if not values:
@@ -324,6 +392,58 @@ def render_readiness_block(opportunity: Opportunity, readiness: ReadinessReport)
         "</form>"
         "</section>"
     )
+
+
+def render_opportunity_applications(opportunity: Opportunity, applications: List[Application]) -> str:
+    if not applications:
+        return (
+            "<section>"
+            "<h2>Заявка</h2>"
+            "<p class=\"muted\">Заявка еще не создана. Создание только добавит внутреннюю запись.</p>"
+            f"<form method=\"post\" action=\"/opportunities/{escape(opportunity.id)}/application\">"
+            "<button type=\"submit\">Создать заявку</button>"
+            "</form>"
+            "</section>"
+        )
+    blocks = ["<section><h2>Заявка</h2><div class=\"callout\">Система ничего не отправляла наружу. Статус фиксирует только действия человека.</div>"]
+    for application in applications:
+        submitted_warning = (
+            "<p class=\"needs-info\">человек уже подал заявку; проверьте сроки ответа и отчета</p>"
+            if application.status == "submitted_by_human"
+            else ""
+        )
+        blocks.extend(
+            [
+                f"<h3>{escape(application_status_label(application.status))}</h3>",
+                submitted_warning,
+                fact_row("Ответственный", application.owner or "Не назначен"),
+                fact_row("Подал человек", application.submitted_by or "Не указано"),
+                fact_row("Дата подачи", application.submitted_at or "[НУЖНО УТОЧНИТЬ]"),
+                fact_row("Срок ответа", application.response_due_at or "[НУЖНО УТОЧНИТЬ]"),
+                fact_row("Срок отчета", application.reporting_due_at or "[НУЖНО УТОЧНИТЬ]"),
+                fact_row("Проверить позже", application.recheck_at or "[НУЖНО УТОЧНИТЬ]"),
+                fact_row("Следующий шаг", application.next_action),
+                f"<form method=\"post\" action=\"/applications/{escape(application.id)}/status\">",
+                f"<label>Стадия <select name=\"status\">{application_status_options(application.status)}</select></label>",
+                f"<label>Ответственный <input name=\"owner\" value=\"{escape(application.owner, quote=True)}\" placeholder=\"Имя\"></label>",
+                f"<label>Кто подал <input name=\"submitted_by\" value=\"{escape(application.submitted_by, quote=True)}\" placeholder=\"Имя, если уже подано\"></label>",
+                "<button type=\"submit\">Сохранить стадию</button>",
+                "</form>",
+                f"<form method=\"post\" action=\"/applications/{escape(application.id)}/dates\">",
+                f"<label>Дата подачи <input name=\"submitted_at\" value=\"{escape(application.submitted_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
+                f"<label>Срок ответа <input name=\"response_due_at\" value=\"{escape(application.response_due_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
+                f"<label>Срок отчета <input name=\"reporting_due_at\" value=\"{escape(application.reporting_due_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
+                f"<label>Проверить позже <input name=\"recheck_at\" value=\"{escape(application.recheck_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
+                "<button type=\"submit\">Сохранить сроки</button>",
+                "</form>",
+                f"<form method=\"post\" action=\"/applications/{escape(application.id)}/note\">",
+                f"<label>Заметка по заявке<textarea name=\"notes\" rows=\"4\">{escape(application.notes)}</textarea></label>",
+                "<button type=\"submit\">Сохранить заметку</button>",
+                "</form>",
+            ]
+        )
+    blocks.append("</section>")
+    return "".join(blocks)
 
 
 def render_operator_actions(opportunity: Opportunity) -> str:
@@ -390,6 +510,10 @@ def review_state_options(current: str) -> str:
 
 def readiness_state_options(current: str) -> str:
     return "".join(option(value, label, current) for value, label in READINESS_STATE_LABELS.items())
+
+
+def application_status_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in APPLICATION_STATUS_LABELS.items())
 
 
 def fund_wiki_review_options(current: str) -> str:

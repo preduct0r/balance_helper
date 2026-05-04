@@ -97,6 +97,8 @@ Allow the user to review extracted facts, assign owners, update statuses, save n
 
 Add guided flows for "Подать заявку", "Подготовить отчёт", "Связаться с партнёром", and "Проверить новый источник". The first guided workflow is "Подготовить заявку": it combines FundWiki gaps, missing documents, deadline, confidence, owner, status, and safe readiness states without sending anything externally.
 
+Phase 3 has started with the internal application pipeline: the UI now shows `/applications`, lets an operator create a "Заявка" record from an opportunity, tracks stages from "Готовим заявку" to "Ждем ответ", "Нужен отчет", and "Проверить позже", and records dates, owners, notes, and ActivityLog history. The status `submitted_by_human` means a person has already submitted the application outside the service; the system only records that fact.
+
 ### UI Phase 3A: FundWiki And Readiness
 
 Make "Паспорт фонда" editable in the local web UI and show required reusable facts for applications: mission, audience, programs, start year, impact, legal details, reports, public links, and presentation. Opportunity cards should show "Готовность заявки" so the operator sees exactly what blocks human review.
