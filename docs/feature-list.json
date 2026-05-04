@@ -73,5 +73,16 @@
       "README.md links to docs/USAGE.md."
     ],
     "passes": true
+  },
+  {
+    "id": "ui-strategy",
+    "priority": 1,
+    "description": "Harness captures UI direction for a non-IT fundraiser before the MVP grows into a broader system.",
+    "acceptance_steps": [
+      "docs/UI_STRATEGY.md identifies the primary non-IT user and UI principles.",
+      "docs/UI_STRATEGY.md outlines the first UI slice and future UI phases.",
+      "AGENTS.md, README.md, ROADMAP.md, and QUALITY.md point future agents to the UI strategy."
+    ],
+    "passes": true
   }
 ]

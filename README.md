@@ -14,6 +14,8 @@ MVP agent for the charity fund "Равновесие". The system helps a fundra
 
 The MVP is the first slice of a broader fundraising operating system for the fund. The full roadmap is kept in `docs/ROADMAP.md`; it covers the opportunity radar, fund passport, application/reporting agent, B2B agent, private donor agent, blogger agent, events and merch, and paid services.
 
+The primary operator may be far from IT, so UI evolution is tracked separately in `docs/UI_STRATEGY.md`. The intended interface is a calm fundraising workspace with dashboards, review queues, opportunity cards, checklists, and editable drafts, not a technical control panel.
+
 ## Quick Start
 
 ```bash
@@ -75,4 +77,4 @@ All opportunities are created as reviewable records. Drafts may contain `[НУЖ
 
 ## Development Harness
 
-Read `AGENTS.md` before coding. Use `docs/ROADMAP.md` for long-term direction, `docs/feature-list.json` for acceptance criteria, and `docs/agent-progress.md` for continuity between sessions.
+Read `AGENTS.md` before coding. Use `docs/ROADMAP.md` for long-term direction, `docs/UI_STRATEGY.md` for user-facing interface direction, `docs/feature-list.json` for acceptance criteria, and `docs/agent-progress.md` for continuity between sessions.

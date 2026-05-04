@@ -16,3 +16,4 @@
 - Added a `system-roadmap` feature-list entry and harness tests for roadmap links/content.
 - Added `docs/USAGE.md` as the detailed operator-facing usage guide.
 - Updated `AGENTS.md` and `docs/QUALITY.md` to require keeping `docs/USAGE.md` current when service usage changes.
+- Added `docs/UI_STRATEGY.md` for non-IT operator UX direction and linked it from roadmap, README, AGENTS, and quality rules.

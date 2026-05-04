@@ -9,6 +9,7 @@ This repository is built to be safe for long-running coding agents. Read this fi
 - Quality rules: `docs/QUALITY.md`
 - Domain map: `docs/FUNDRAISING_DOMAIN.md`
 - System roadmap: `docs/ROADMAP.md`
+- UI strategy: `docs/UI_STRATEGY.md`
 - Detailed service usage: `docs/USAGE.md`
 - Active plan: `docs/exec-plans/active/mvp-platform-applications-agent.md`
 - Progress log: `docs/agent-progress.md`
@@ -45,6 +46,7 @@ This repository is built to be safe for long-running coding agents. Read this fi
 - Add or update tests with the feature.
 - Keep `README.md` current when commands, env vars, storage shape, or behavior change.
 - Keep `docs/USAGE.md` current with detailed operator-facing instructions whenever setup, CLI, Telegram, storage, Yandex, Google Sheets, or workflow behavior changes.
+- Keep `docs/UI_STRATEGY.md` current when user-facing screens, labels, statuses, review flows, or frontend scope change.
 - Keep `docs/agent-progress.md` current when a meaningful decision, blocker, or completion state changes.
 - Do not mark `passes: true` in `docs/feature-list.json` until the related tests/checks pass.
 

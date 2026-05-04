@@ -22,6 +22,7 @@ class HarnessDocsTests(unittest.TestCase):
             "docs/TESTING.md",
             "docs/QUALITY.md",
             "docs/ROADMAP.md",
+            "docs/UI_STRATEGY.md",
             "docs/USAGE.md",
             "docs/exec-plans/active/mvp-platform-applications-agent.md",
             "docs/agent-progress.md",
@@ -53,6 +54,25 @@ class HarnessDocsTests(unittest.TestCase):
         domain = (ROOT / "docs/FUNDRAISING_DOMAIN.md").read_text(encoding="utf-8")
         self.assertIn("docs/ROADMAP.md", readme)
         self.assertIn("docs/ROADMAP.md", domain)
+
+    def test_ui_strategy_is_linked_and_operator_centered(self) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        roadmap = (ROOT / "docs/ROADMAP.md").read_text(encoding="utf-8")
+        quality = (ROOT / "docs/QUALITY.md").read_text(encoding="utf-8")
+        ui_strategy = (ROOT / "docs/UI_STRATEGY.md").read_text(encoding="utf-8")
+        for document in [agents, readme, roadmap, quality]:
+            self.assertIn("docs/UI_STRATEGY.md", document)
+        for phrase in [
+            "Primary User",
+            "non-IT",
+            "Daily Dashboard",
+            "Opportunity Detail",
+            "Review Queue",
+            "UI Phase 1",
+            "Multi-Agent Workspace",
+        ]:
+            self.assertIn(phrase, ui_strategy)
 
     def test_usage_guide_is_linked_and_detailed(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
