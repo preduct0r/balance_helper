@@ -22,6 +22,7 @@ class HarnessDocsTests(unittest.TestCase):
             "docs/TESTING.md",
             "docs/QUALITY.md",
             "docs/ROADMAP.md",
+            "docs/USAGE.md",
             "docs/exec-plans/active/mvp-platform-applications-agent.md",
             "docs/agent-progress.md",
             "docs/feature-list.json",
@@ -52,6 +53,24 @@ class HarnessDocsTests(unittest.TestCase):
         domain = (ROOT / "docs/FUNDRAISING_DOMAIN.md").read_text(encoding="utf-8")
         self.assertIn("docs/ROADMAP.md", readme)
         self.assertIn("docs/ROADMAP.md", domain)
+
+    def test_usage_guide_is_linked_and_detailed(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        usage = (ROOT / "docs/USAGE.md").read_text(encoding="utf-8")
+        self.assertIn("docs/USAGE.md", readme)
+        self.assertIn("Keep `docs/USAGE.md` current", agents)
+        for phrase in [
+            "Local Setup",
+            "Environment Variables",
+            "Local JSON Store",
+            "Basic Workflow",
+            "Discovery Workflow",
+            "Telegram Bot",
+            "Google Sheets Store",
+            "Human Review Boundary",
+        ]:
+            self.assertIn(phrase, usage)
 
 
 if __name__ == "__main__":

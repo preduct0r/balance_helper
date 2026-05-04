@@ -35,6 +35,7 @@ def check_docs_links() -> None:
         "ARCHITECTURE.md",
         "docs/TESTING.md",
         "docs/QUALITY.md",
+        "docs/USAGE.md",
         "docs/exec-plans/active/mvp-platform-applications-agent.md",
         "docs/agent-progress.md",
         "docs/feature-list.json",
@@ -61,4 +62,3 @@ def _env() -> dict[str, str]:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

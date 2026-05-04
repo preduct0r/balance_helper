@@ -14,3 +14,5 @@
 - Added `docs/ROADMAP.md` so future agents understand the original fundraising problem and the broader multi-agent roadmap beyond the MVP.
 - Linked the roadmap from `AGENTS.md`, `README.md`, and `docs/FUNDRAISING_DOMAIN.md`.
 - Added a `system-roadmap` feature-list entry and harness tests for roadmap links/content.
+- Added `docs/USAGE.md` as the detailed operator-facing usage guide.
+- Updated `AGENTS.md` and `docs/QUALITY.md` to require keeping `docs/USAGE.md` current when service usage changes.

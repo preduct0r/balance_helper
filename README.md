@@ -31,6 +31,8 @@ The default store is `data/local_store.json`. Override it with:
 export BALANCE_STORE_PATH=/path/to/store.json
 ```
 
+For detailed operator-facing usage instructions, see `docs/USAGE.md`.
+
 ## Environment Variables
 
 - `YANDEX_API_KEY`: API key for Yandex Foundation Models and Search API.

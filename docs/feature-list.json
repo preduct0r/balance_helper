@@ -62,5 +62,16 @@
       "Domain docs refer to the roadmap instead of duplicating all future scope."
     ],
     "passes": true
+  },
+  {
+    "id": "usage-instructions",
+    "priority": 1,
+    "description": "Harness requires detailed operator-facing service usage instructions to stay current.",
+    "acceptance_steps": [
+      "docs/USAGE.md explains setup, env vars, local store, basic workflow, discovery, Telegram, Google Sheets, and human review.",
+      "AGENTS.md explicitly requires updating docs/USAGE.md when service usage changes.",
+      "README.md links to docs/USAGE.md."
+    ],
+    "passes": true
   }
 ]
