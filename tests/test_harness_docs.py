@@ -118,6 +118,7 @@ class HarnessDocsTests(unittest.TestCase):
             "Events And Merch Agent",
             "Paid Services Agent",
             "FastAPI And Logging Hardening",
+            "Docker Persistent Runtime",
         ]:
             self.assertIn(phrase, roadmap)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -218,6 +219,10 @@ class HarnessDocsTests(unittest.TestCase):
             "request_id",
             "ActivityLog",
             "FastAPI/uvicorn",
+            "Docker Runtime",
+            "docker compose up --build",
+            "./logs:/app/logs",
+            "./data:/app/data",
         ]:
             self.assertIn(phrase, usage)
 
@@ -234,6 +239,7 @@ class HarnessDocsTests(unittest.TestCase):
             "private-donor-campaign-agent",
             "cross-agent-operator-dashboard",
             "fastapi-structured-logging-hardening",
+            "docker-persistent-runtime",
             "final-validation-and-hardening",
         ]:
             self.assertIn(feature_id, feature_ids)

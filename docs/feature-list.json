@@ -265,6 +265,17 @@
     "passes": true
   },
   {
+    "id": "docker-persistent-runtime",
+    "priority": 5,
+    "description": "Docker and Docker Compose runtime with host-mounted data and logs so local state survives container stops.",
+    "acceptance_steps": [
+      "Dockerfile runs the existing FastAPI web command with local store and log paths inside /app.",
+      "docker-compose.yml mounts ./data and ./logs into the container.",
+      "README and docs/USAGE.md document Docker startup, shutdown, and persistent logs."
+    ],
+    "passes": true
+  },
+  {
     "id": "final-validation-and-hardening",
     "priority": 6,
     "description": "Final real-world validation, integration hardening, and UI/deployment decisions after the roadmap skeleton is implemented.",

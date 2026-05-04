@@ -128,6 +128,17 @@ Status: v1 implemented as a local-first cross-agent dashboard and review queue. 
 
 Status: v1 implemented as a local-first hardening step. It does not add auth, deployment, external sends, or a frontend rewrite.
 
+## Phase 11: Docker Persistent Runtime
+
+Цель: дать простой локальный запуск через Docker без потери рабочих файлов после остановки контейнера.
+
+- `Dockerfile` builds the FastAPI web runtime.
+- `docker-compose.yml` maps `./data` to `/app/data` and `./logs` to `/app/logs`.
+- Local JSON store and `logs/app.jsonl` remain on the host after `docker compose stop` or `docker compose down`.
+- This is still a local/internal runtime, not production auth/deployment.
+
+Status: v1 implemented as a local Docker Compose setup with persistent data and logs.
+
 ## Shared Principles
 
 - Человек утверждает все внешние действия.

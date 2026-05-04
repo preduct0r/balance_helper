@@ -42,6 +42,25 @@ export BALANCE_STORE_BACKEND=local
 
 For detailed operator-facing usage instructions, see `docs/USAGE.md`.
 
+## Docker
+
+Run the local FastAPI web UI with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Open `http://127.0.0.1:8080`.
+
+The compose setup mounts host folders into the container:
+
+- `./data:/app/data` keeps the local JSON store after the container stops.
+- `./logs:/app/logs` keeps `logs/app.jsonl` after the container stops.
+
+Use `docker compose stop` to stop without removing the container, or `docker compose down` to remove the container. In both cases, `./logs/app.jsonl` and `./data/local_store.json` remain on the host. Do not commit `.env`, `data/`, or `logs/`.
+
+The default Compose service is local-first and does not pass Yandex or Telegram secrets into the container. Add real external credentials only for an intentional manual integration smoke.
+
 ## Environment Variables
 
 - `YANDEX_API_KEY`: API key for Yandex Foundation Models and Search API.

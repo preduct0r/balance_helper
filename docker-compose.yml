@@ -1,0 +1,17 @@
+services:
+  balance-fundraising:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - BALANCE_STORE_BACKEND=local
+      - BALANCE_STORE_PATH=/app/data/local_store.json
+      - BALANCE_LOG_FILE=/app/logs/app.jsonl
+      - BALANCE_LOG_LEVEL=${BALANCE_LOG_LEVEL:-INFO}
+      - BALANCE_LOG_TO_CONSOLE=${BALANCE_LOG_TO_CONSOLE:-0}
+      - BALANCE_WEB_HOST=0.0.0.0
+      - BALANCE_WEB_PORT=8080
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped

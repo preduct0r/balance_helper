@@ -501,7 +501,38 @@ tail -n 20 logs/app.jsonl
 
 When reporting a bug, attach the relevant `request_id`, the last few `ERROR` lines from `logs/app.jsonl`, and the operator action that caused the issue. Do not paste `.env`, Google service account JSON, or personal data.
 
-## 8. Operator Recipes
+## 8. Docker Runtime
+
+Use Docker when you want to run the local web UI without activating a Python virtualenv:
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+```text
+http://127.0.0.1:8080
+```
+
+The compose setup uses host-mounted folders:
+
+- `./data:/app/data` stores `local_store.json`.
+- `./logs:/app/logs` stores `app.jsonl`.
+
+That means logs and local store data survive container stops:
+
+```bash
+docker compose stop
+docker compose down
+tail -n 20 logs/app.jsonl
+```
+
+`docker compose down -v` is not needed for this setup and should be avoided unless you intentionally want to remove Docker-managed volumes in another configuration. The current setup uses host folders, so `logs/app.jsonl` remains visible on the machine after normal stop/down.
+
+The default Compose file is local-first and does not pass Yandex or Telegram secrets into the container. Keep real external credentials outside Docker until you intentionally add them for a manual integration smoke. Do not commit `.env`, `data/`, or `logs/`.
+
+## 9. Operator Recipes
 
 ### Я нашла ссылку, что делать?
 
@@ -623,7 +654,7 @@ The system only records the fact. It does not submit the application and does no
 5. Save a note with report requirements or a link to the source.
 6. Check `digest` or the `/applications` page regularly until the report is done.
 
-## 9. Discovery Workflow
+## 10. Discovery Workflow
 
 Run Yandex Search discovery:
 
@@ -639,7 +670,7 @@ PYTHONPATH=src python3 -m balance_fundraising.cli discover --query "грант �
 
 Discovery uses the configured Yandex Search API and creates reviewable opportunity records. Newly discovered records are not treated as approved facts. A human must review them before external action.
 
-## 10. Telegram Bot
+## 11. Telegram Bot
 
 Set the bot token:
 
@@ -663,7 +694,7 @@ Supported commands:
 
 The bot command handlers are testable without Telegram. The polling runner requires the optional `python-telegram-bot` dependency.
 
-## 11. Google Sheets Store
+## 12. Google Sheets Store
 
 The production plan uses Google Sheets with these tabs:
 
@@ -692,7 +723,7 @@ python -m pip install '.[google]'
 
 The local JSON store remains the required path for tests and offline development.
 
-## 12. Human Review Boundary
+## 13. Human Review Boundary
 
 The service never sends applications, emails, reports, or partner messages by itself. Generated checklists and drafts are working materials.
 
@@ -704,7 +735,7 @@ Before using generated text externally, a human must check:
 - consistency with `FundWiki`;
 - absence of personal beneficiary data.
 
-## 13. Updating This Guide
+## 14. Updating This Guide
 
 When a developer or agent changes service usage, update this file in the same change. This includes:
 
