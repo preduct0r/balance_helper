@@ -254,8 +254,19 @@
     "passes": true
   },
   {
-    "id": "final-validation-and-hardening",
+    "id": "fastapi-structured-logging-hardening",
     "priority": 5,
+    "description": "FastAPI web runtime and sanitized JSONL technical logs for debugging before real-world validation.",
+    "acceptance_steps": [
+      "CLI web command runs the existing operator UI through FastAPI/uvicorn.",
+      "Technical logs are JSONL, include request/error metadata, and sanitize secrets and contact-like data.",
+      "Doctor reports FastAPI/uvicorn/log status without external service calls."
+    ],
+    "passes": true
+  },
+  {
+    "id": "final-validation-and-hardening",
+    "priority": 6,
     "description": "Final real-world validation, integration hardening, and UI/deployment decisions after the roadmap skeleton is implemented.",
     "acceptance_steps": [
       "Manual real-world smoke covers all implemented agent modules.",

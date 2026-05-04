@@ -125,6 +125,10 @@ Phase 4 now includes "Доноры": operators can create segment-level donor ca
 
 Phase 4 is now tied together by the cross-agent operator dashboard: the home page groups urgent work, missing owners, review items, gaps, risks, and direction counts across every implemented module. The review queue uses the same human-review boundary and links each item back to the relevant card.
 
+### Hardening: FastAPI And Diagnostics
+
+The local web UI now runs through FastAPI/uvicorn while keeping server-rendered HTML and the same operator routes. This is a reliability and diagnostics step, not a visual redesign. Technical JSONL logs support bug reports with request ids, paths, status codes, durations, and sanitized error details; `ActivityLog` remains the operator-facing work history.
+
 ## Engineering Implications
 
 - Keep service logic outside the UI so CLI, Telegram, and web screens reuse the same services.

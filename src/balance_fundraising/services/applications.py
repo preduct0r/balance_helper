@@ -4,6 +4,7 @@ from datetime import date
 from typing import Dict
 
 from balance_fundraising.domain import ActivityLogEntry, Application
+from balance_fundraising.services.structured_logging import log_event
 
 APPLICATION_STATUS_LABELS = {
     "preparing": "Готовим заявку",
@@ -63,6 +64,7 @@ def update_application_status(store, application_id: str, status: str, **fields:
             payload[key] = fields[key].strip()
     application = store.update_application_fields(application_id, payload)
     store.add_activity(ActivityLogEntry.today(action="application_status", entity_id=application.id, details=status))
+    log_event("application.status", "Application status updated", entity_type="application", entity_id=application.id, status=status)
     return application
 
 

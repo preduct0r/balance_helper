@@ -43,6 +43,9 @@ GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
 TELEGRAM_BOT_TOKEN=...
 BALANCE_WEB_HOST=127.0.0.1
 BALANCE_WEB_PORT=8080
+BALANCE_LOG_LEVEL=INFO
+BALANCE_LOG_FILE=logs/app.jsonl
+BALANCE_LOG_TO_CONSOLE=0
 ```
 
 ## 3. Local JSON Store
@@ -81,7 +84,7 @@ Run:
 PYTHONPATH=src python3 -m balance_fundraising.cli doctor
 ```
 
-`doctor` checks local configuration, dependencies, `.env`, selected store backend, and optional Yandex/Google/Telegram settings. In local mode, missing external credentials are warnings, not failures.
+`doctor` checks local configuration, dependencies, `.env`, selected store backend, FastAPI/uvicorn runtime, technical JSONL logs, and optional Yandex/Google/Telegram settings. In local mode, missing external credentials are warnings, not failures.
 
 To check Google backend configuration without making real Google calls:
 
@@ -329,7 +332,7 @@ BALANCE_WEB_HOST=127.0.0.1
 BALANCE_WEB_PORT=8080
 ```
 
-The first web UI is local-only. It shows:
+The first web UI is local-only. It now runs on FastAPI/uvicorn and keeps server-rendered HTML pages for the operator workflow. It shows:
 
 - единый рабочий стол with urgent actions, missing owners, review items, gaps, risks, and counts across all modules;
 - `Радар` for curated Yandex Search discovery;
@@ -477,7 +480,28 @@ Use this for the first пользовательский прогон with a real
 7. Generate/read the draft, but do not send it externally.
 8. Open "Первый прогон" and record what was confusing, missing, or excessive in the feedback form before the next development step.
 
-## 7. Operator Recipes
+## 7. Technical Logs
+
+`ActivityLog` is the operator-facing history inside the store: status changes, application actions, radar runs, and first-run observations. Technical logs are separate and are meant for finding bugs.
+
+By default, the service writes JSONL logs to:
+
+```bash
+logs/app.jsonl
+```
+
+Each line is a JSON object with fields such as `timestamp`, `level`, `event`, `request_id`, `method`, `path`, `status_code`, `duration_ms`, `entity_type`, and `entity_id`. Logs are sanitized: request bodies, API keys, Telegram tokens, service-account contents, obvious emails, phone-like values, and personal data should not be written.
+
+Useful commands:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli doctor
+tail -n 20 logs/app.jsonl
+```
+
+When reporting a bug, attach the relevant `request_id`, the last few `ERROR` lines from `logs/app.jsonl`, and the operator action that caused the issue. Do not paste `.env`, Google service account JSON, or personal data.
+
+## 8. Operator Recipes
 
 ### Я нашла ссылку, что делать?
 
@@ -599,7 +623,7 @@ The system only records the fact. It does not submit the application and does no
 5. Save a note with report requirements or a link to the source.
 6. Check `digest` or the `/applications` page regularly until the report is done.
 
-## 8. Discovery Workflow
+## 9. Discovery Workflow
 
 Run Yandex Search discovery:
 
@@ -615,7 +639,7 @@ PYTHONPATH=src python3 -m balance_fundraising.cli discover --query "грант �
 
 Discovery uses the configured Yandex Search API and creates reviewable opportunity records. Newly discovered records are not treated as approved facts. A human must review them before external action.
 
-## 9. Telegram Bot
+## 10. Telegram Bot
 
 Set the bot token:
 
@@ -639,7 +663,7 @@ Supported commands:
 
 The bot command handlers are testable without Telegram. The polling runner requires the optional `python-telegram-bot` dependency.
 
-## 10. Google Sheets Store
+## 11. Google Sheets Store
 
 The production plan uses Google Sheets with these tabs:
 
@@ -668,7 +692,7 @@ python -m pip install '.[google]'
 
 The local JSON store remains the required path for tests and offline development.
 
-## 11. Human Review Boundary
+## 12. Human Review Boundary
 
 The service never sends applications, emails, reports, or partner messages by itself. Generated checklists and drafts are working materials.
 
@@ -680,7 +704,7 @@ Before using generated text externally, a human must check:
 - consistency with `FundWiki`;
 - absence of personal beneficiary data.
 
-## 12. Updating This Guide
+## 13. Updating This Guide
 
 When a developer or agent changes service usage, update this file in the same change. This includes:
 

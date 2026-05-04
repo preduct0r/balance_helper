@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import os
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, Iterable, List, Optional
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import unquote, urlparse
 
 from balance_fundraising.app_defaults import DEFAULT_BLOGGER_QUERIES, DEFAULT_B2B_QUERIES, DEFAULT_DISCOVERY_QUERIES, DEFAULT_EVENT_QUERIES
 from balance_fundraising.adapters.web_templates import (
@@ -79,6 +78,7 @@ from balance_fundraising.services.offers import (
 )
 from balance_fundraising.services.operator_dashboard import build_operator_work_items, section_counts
 from balance_fundraising.services.readiness import build_readiness
+from balance_fundraising.services.structured_logging import build_logging_config, log_event
 
 
 class WebApp:
@@ -398,6 +398,7 @@ def add_opportunity(store, url: str) -> Opportunity:
     opportunity = Opportunity.from_url(url)
     store.upsert_opportunity(opportunity)
     store.add_activity(ActivityLogEntry.today(action="add_link", entity_id=opportunity.id, details=url))
+    log_event("store.update", "Opportunity added", entity_type="opportunity", entity_id=opportunity.id, path="/opportunities")
     return opportunity
 
 
@@ -416,6 +417,7 @@ def update_status(store, opportunity_id: str, *, status: str, review_state: str)
         fields["review_state"] = review_state
     opportunity = store.update_opportunity_fields(opportunity_id, fields)
     store.add_activity(ActivityLogEntry.today(action="status", entity_id=opportunity.id, details=f"{status} / {review_state}"))
+    log_event("store.update", "Opportunity status updated", entity_type="opportunity", entity_id=opportunity.id, status=status or opportunity.status)
     return opportunity
 
 
@@ -537,8 +539,10 @@ def run_radar(store, search_client_factory, form: Dict[str, str]) -> None:
         error = sanitize_discovery_error(str(exc))
         store.add_activity(ActivityLogEntry.today(action="discover_error", entity_id="radar", details=error))
         store.add_activity(ActivityLogEntry.today(action="discover_run", entity_id="radar", details=f"failed: {error}"))
+        log_event("radar.run", "Opportunity radar failed", level="ERROR", entity_type="radar", entity_id="radar", details=error)
         return
-    DiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    result = DiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    log_event("radar.run", "Opportunity radar completed", entity_type="radar", entity_id="radar", status=result.status, created=result.created_count, existing=result.existing_count)
 
 
 def render_b2b(store) -> str:
@@ -565,8 +569,10 @@ def run_b2b_radar(store, search_client_factory, form: Dict[str, str]) -> None:
         error = sanitize_b2b_error(str(exc))
         store.add_activity(ActivityLogEntry.today(action="b2b_discover_error", entity_id="b2b", details=error))
         store.add_activity(ActivityLogEntry.today(action="b2b_discover_run", entity_id="b2b", details=f"failed: {error}"))
+        log_event("radar.run", "B2B radar failed", level="ERROR", entity_type="lead", entity_id="b2b", details=error)
         return
-    B2BDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    result = B2BDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    log_event("radar.run", "B2B radar completed", entity_type="lead", entity_id="b2b", status=result.status, created=result.created_count, existing=result.existing_count)
 
 
 def render_events(store) -> str:
@@ -593,8 +599,10 @@ def run_event_radar(store, search_client_factory, form: Dict[str, str]) -> None:
         error = sanitize_event_error(str(exc))
         store.add_activity(ActivityLogEntry.today(action="event_discover_error", entity_id="event", details=error))
         store.add_activity(ActivityLogEntry.today(action="event_discover_run", entity_id="event", details=f"failed: {error}"))
+        log_event("radar.run", "Event radar failed", level="ERROR", entity_type="lead", entity_id="event", details=error)
         return
-    EventDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    result = EventDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    log_event("radar.run", "Event radar completed", entity_type="lead", entity_id="event", status=result.status, created=result.created_count, existing=result.existing_count)
 
 
 def render_bloggers(store) -> str:
@@ -621,8 +629,10 @@ def run_blogger_radar(store, search_client_factory, form: Dict[str, str]) -> Non
         error = sanitize_blogger_error(str(exc))
         store.add_activity(ActivityLogEntry.today(action="blogger_discover_error", entity_id="blogger", details=error))
         store.add_activity(ActivityLogEntry.today(action="blogger_discover_run", entity_id="blogger", details=f"failed: {error}"))
+        log_event("radar.run", "Blogger radar failed", level="ERROR", entity_type="lead", entity_id="blogger", details=error)
         return
-    BloggerDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    result = BloggerDiscoveryService(store, client).discover(queries, limit_per_query=limit)
+    log_event("radar.run", "Blogger radar completed", entity_type="lead", entity_id="blogger", status=result.status, created=result.created_count, existing=result.existing_count)
 
 
 def render_opportunities(opportunities: Iterable[Opportunity]) -> str:
@@ -661,6 +671,7 @@ def render_b2b_detail(store, lead_id: str) -> str:
         return render_not_found()
     activity = [item for item in store.list_activity() if item.entity_id == lead.id]
     approved_offers = approved_service_offers(store.list_service_offers())
+    log_event("draft.build", "B2B draft rendered", entity_type="lead", entity_id=lead.id)
     return render_b2b_detail_page(
         lead,
         draft=build_b2b_draft(lead, store.list_fund_wiki(), approved_offers),
@@ -692,6 +703,7 @@ def render_blogger_detail(store, lead_id: str) -> str:
     if lead.category != "blogger":
         return render_not_found()
     activity = [item for item in store.list_activity() if item.entity_id == lead.id]
+    log_event("draft.build", "Blogger draft rendered", entity_type="lead", entity_id=lead.id)
     return render_blogger_detail_page(
         lead=lead,
         checklist=build_blogger_ethics_checklist(lead, store.list_fund_wiki()),
@@ -706,6 +718,7 @@ def render_offer_detail(store, offer_id: str) -> str:
     except KeyError:
         return render_not_found()
     activity = [item for item in store.list_activity() if item.entity_id == offer.id]
+    log_event("draft.build", "Offer description rendered", entity_type="service_offer", entity_id=offer.id)
     return render_service_offer_detail_page(
         offer=offer,
         draft=build_offer_description(offer, store.list_fund_wiki()),
@@ -721,6 +734,7 @@ def render_donor_campaign_detail(store, campaign_id: str) -> str:
     build_donor_campaign_readiness(campaign)
     store.upsert_donor_campaign(campaign)
     activity = [item for item in store.list_activity() if item.entity_id == campaign.id]
+    log_event("draft.build", "Donor campaign draft rendered", entity_type="donor_campaign", entity_id=campaign.id)
     return render_donor_campaign_detail_page(
         campaign=campaign,
         draft=build_donor_campaign_draft(campaign, store.list_fund_wiki()),
@@ -801,6 +815,7 @@ def render_opportunity_detail(store, opportunity_id: str) -> str:
     checklist = build_checklist(opportunity)
     wiki_entries = store.list_fund_wiki()
     draft = build_application_draft(opportunity, wiki_entries)
+    log_event("draft.build", "Application draft rendered", entity_type="opportunity", entity_id=opportunity.id)
     checklist_items = opportunity.required_documents + opportunity.missing_info
     if not opportunity.deadline:
         checklist_items.append("Уточнить дедлайн")
@@ -934,40 +949,11 @@ def _lines(value: str) -> List[str]:
     return [line.strip() for line in value.splitlines() if line.strip()]
 
 
-def make_handler(app: WebApp):
-    class FundraisingHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
-            status, html = app.render(self.path)
-            self._send_html(status, html)
-
-        def do_POST(self) -> None:
-            content_length = int(self.headers.get("Content-Length", "0"))
-            raw_body = self.rfile.read(content_length).decode("utf-8")
-            form = {key: values[0] for key, values in parse_qs(raw_body).items()}
-            status, result = app.post(self.path, form)
-            if status == 303:
-                self.send_response(303)
-                self.send_header("Location", result)
-                self.end_headers()
-                return
-            self._send_html(status, result)
-
-        def log_message(self, format: str, *args) -> None:
-            return
-
-        def _send_html(self, status: int, html: str) -> None:
-            payload = html.encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-
-    return FundraisingHandler
-
-
 def run_web_server(store, *, host: str = "127.0.0.1", port: int = 8080) -> None:
-    app = WebApp(store)
-    server = ThreadingHTTPServer((host, port), make_handler(app))
+    import uvicorn
+
+    from balance_fundraising.adapters.fastapi_app import create_fastapi_app
+
+    app = create_fastapi_app(store, log_config=build_logging_config())
     print(f"Web UI: http://{host}:{port}")
-    server.serve_forever()
+    uvicorn.run(app, host=host, port=port, log_level="warning")

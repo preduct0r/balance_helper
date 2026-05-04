@@ -76,6 +76,9 @@ class HarnessDocsTests(unittest.TestCase):
             "BALANCE_STORE_BACKEND",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
+            "BALANCE_LOG_LEVEL",
+            "BALANCE_LOG_FILE",
+            "BALANCE_LOG_TO_CONSOLE",
         ]:
             self.assertIn(env, readme)
 
@@ -114,6 +117,7 @@ class HarnessDocsTests(unittest.TestCase):
             "Blogger And Ambassador Agent",
             "Events And Merch Agent",
             "Paid Services Agent",
+            "FastAPI And Logging Hardening",
         ]:
             self.assertIn(phrase, roadmap)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -140,6 +144,8 @@ class HarnessDocsTests(unittest.TestCase):
             "Review And Edit",
             "Human-review boundaries",
             "Multi-Agent Workspace",
+            "FastAPI/uvicorn",
+            "Technical JSONL logs",
         ]:
             self.assertIn(phrase, ui_strategy)
 
@@ -207,6 +213,11 @@ class HarnessDocsTests(unittest.TestCase):
             "общая очередь проверки",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
+            "Technical Logs",
+            "logs/app.jsonl",
+            "request_id",
+            "ActivityLog",
+            "FastAPI/uvicorn",
         ]:
             self.assertIn(phrase, usage)
 
@@ -222,6 +233,7 @@ class HarnessDocsTests(unittest.TestCase):
             "blogger-ambassador-agent",
             "private-donor-campaign-agent",
             "cross-agent-operator-dashboard",
+            "fastapi-structured-logging-hardening",
             "final-validation-and-hardening",
         ]:
             self.assertIn(feature_id, feature_ids)

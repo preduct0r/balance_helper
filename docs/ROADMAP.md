@@ -117,6 +117,17 @@ Status: v1 implemented as a local-first service offer workspace. It stores revie
 
 Status: v1 implemented as a local-first cross-agent dashboard and review queue. It builds operator work items on the fly from existing records and keeps external actions human-review only.
 
+## Phase 10: FastAPI And Logging Hardening
+
+Цель: сделать текущий локальный UI удобнее сопровождать до реальных прогонов.
+
+- FastAPI/uvicorn replaces the standard-library web server behind the existing `web` command.
+- Existing server-rendered routes and forms stay stable for the operator.
+- Technical JSONL logs capture request ids, statuses, durations, internal events, and sanitized errors.
+- `ActivityLog` remains product history; `logs/app.jsonl` is for debugging.
+
+Status: v1 implemented as a local-first hardening step. It does not add auth, deployment, external sends, or a frontend rewrite.
+
 ## Shared Principles
 
 - Человек утверждает все внешние действия.

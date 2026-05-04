@@ -17,6 +17,7 @@ When starting a new roadmap session, read `AGENTS.md`, this plan, `docs/agent-pr
 - [x] `blogger-ambassador-agent`: creator leads with ethics/risk checklist and safe collaboration drafts.
 - [x] `private-donor-campaign-agent`: segment-level donor campaigns without personal donor data.
 - [x] `cross-agent-operator-dashboard`: unified dashboard, review queue, and digest across implemented modules.
+- [x] `fastapi-structured-logging-hardening`: FastAPI web runtime and sanitized JSONL technical logs.
 - [ ] `final-validation-and-hardening`: real-world validation, integration hardening, and UI/deployment decisions.
 
 ## Defaults

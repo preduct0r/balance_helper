@@ -51,6 +51,18 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("Диагностика сервиса", report)
         self.assertIn("YANDEX_API_KEY", report)
 
+    def test_doctor_reports_fastapi_and_log_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "logs" / "app.jsonl"
+            config = build_store_config(local_path=str(Path(tmp) / "store.json"), env={})
+            checks = run_doctor(config, env={"BALANCE_LOG_FILE": str(log_path), "BALANCE_LOG_LEVEL": "DEBUG"}, root=Path(tmp))
+        report = format_doctor_report(checks)
+        self.assertFalse(doctor_has_errors(checks))
+        self.assertIn("dependency:fastapi", report)
+        self.assertIn("dependency:uvicorn", report)
+        self.assertIn("logs:jsonl", report)
+        self.assertIn("BALANCE_LOG_LEVEL=DEBUG", report)
+
     def test_doctor_errors_for_misconfigured_google_mode(self) -> None:
         config = build_store_config(backend="google", env={})
         checks = run_doctor(config, env={}, root=ROOT)
@@ -75,6 +87,16 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertTrue(fake_store.initialized)
         self.assertEqual(create_store_mock.call_args.args[0].backend, "google")
         self.assertIn("Initialized google store", output.getvalue())
+
+    def test_cli_web_uses_run_web_server(self) -> None:
+        fake_store = FakeStore()
+        with patch("balance_fundraising.cli.create_store", return_value=fake_store):
+            with patch("balance_fundraising.cli.run_web_server") as run_web_server:
+                exit_code = cli_main(["--store", "test-store.json", "web", "--host", "127.0.0.1", "--port", "8091"])
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(fake_store.initialized)
+        self.assertEqual(run_web_server.call_args.kwargs["host"], "127.0.0.1")
+        self.assertEqual(run_web_server.call_args.kwargs["port"], 8091)
 
     def test_cli_seed_demo_populates_local_store(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

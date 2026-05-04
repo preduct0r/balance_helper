@@ -8,7 +8,8 @@ MVP agent for the charity fund "Равновесие". The system helps a fundra
 - Searches Russian-language NKO opportunities through Yandex Search API.
 - Fetches pages and documents, extracts readable text, and asks Yandex LLM for structured JSON.
 - Generates checklists and draft application text from the approved `FundWiki` only.
-- Provides CLI commands, Telegram command handlers, and a local web workspace for daily work.
+- Provides CLI commands, Telegram command handlers, and a FastAPI-powered local web workspace for daily work.
+- Writes technical JSONL logs for bug hunting while keeping operator history in `ActivityLog`.
 
 ## System Roadmap
 
@@ -54,6 +55,9 @@ For detailed operator-facing usage instructions, see `docs/USAGE.md`.
 - `TELEGRAM_BOT_TOKEN`: token for running the Telegram bot.
 - `BALANCE_WEB_HOST`: optional local web host. Defaults to `127.0.0.1`.
 - `BALANCE_WEB_PORT`: optional local web port. Defaults to `8080`.
+- `BALANCE_LOG_LEVEL`: technical log level. Defaults to `INFO`.
+- `BALANCE_LOG_FILE`: technical JSONL log path. Defaults to `logs/app.jsonl`.
+- `BALANCE_LOG_TO_CONSOLE`: set `1` to also print JSONL logs to stderr.
 
 ## CLI
 
@@ -133,7 +137,11 @@ Run:
 PYTHONPATH=src python -m balance_fundraising.cli web
 ```
 
-Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: cross-agent dashboard, radar, B2B workspace, `Услуги`, `Мероприятия`, `Блогеры`, `Доноры`, unified review queue, opportunity list, application list and detail pages, `Контакты и направления`, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In B2B, an operator can search company leads, analyze pasted source text, and review a draft first-contact letter and one-pager with approved service offers. In `Услуги`, an operator can keep internal paid-service descriptions, gaps, materials, owner, notes, and review state. In `Мероприятия`, an operator can search NKO markets and charity fairs, open event cards, and use a practical checklist for deadline, fee, documents, materials, volunteer shifts, logistics, and post-report notes without inventory, payments, or external sends. In `Блогеры`, an operator can search public blogs and communities, run an ethics checklist, review reputation risks, and prepare human-reviewed collaboration drafts without outreach automation. In `Доноры`, an operator can create segment-level private donor campaigns, prepare gratitude, impact digest, reactivation, or regular-donation explainer drafts, and keep the no-send/no-personal-data boundary visible. In the opportunity, application, lead, offer, event, blogger, and donor campaign cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
+Open `http://127.0.0.1:8080`. The `web` command now runs FastAPI through uvicorn, while preserving the same server-rendered operator workflow as CLI: cross-agent dashboard, radar, B2B workspace, `Услуги`, `Мероприятия`, `Блогеры`, `Доноры`, unified review queue, opportunity list, application list and detail pages, `Контакты и направления`, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In B2B, an operator can search company leads, analyze pasted source text, and review a draft first-contact letter and one-pager with approved service offers. In `Услуги`, an operator can keep internal paid-service descriptions, gaps, materials, owner, notes, and review state. In `Мероприятия`, an operator can search NKO markets and charity fairs, open event cards, and use a practical checklist for deadline, fee, documents, materials, volunteer shifts, logistics, and post-report notes without inventory, payments, or external sends. In `Блогеры`, an operator can search public blogs and communities, run an ethics checklist, review reputation risks, and prepare human-reviewed collaboration drafts without outreach automation. In `Доноры`, an operator can create segment-level private donor campaigns, prepare gratitude, impact digest, reactivation, or regular-donation explainer drafts, and keep the no-send/no-personal-data boundary visible. In the opportunity, application, lead, offer, event, blogger, and donor campaign cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
+
+## Technical Logs
+
+Technical logs are written as JSONL to `logs/app.jsonl` by default. They include request ids, methods, paths, status codes, durations, internal events, and sanitized errors. `ActivityLog` remains the operator-facing work history; `logs/app.jsonl` is for debugging bugs. Run `doctor` to see the log path, write status, log level, and recent error count.
 
 Use `seed-demo` in local mode to create a training dataset for a non-IT operator. It adds demo opportunities and one starter application record; it does not call Yandex, Google, Telegram, or partner services.
 
