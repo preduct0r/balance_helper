@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.google_sheets_store import GoogleSheetsStore
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, ServiceOffer
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -85,6 +85,25 @@ class ExampleAndAdapterTests(unittest.TestCase):
         self.assertEqual(updated.status, "contact_planned")
         self.assertEqual(updated.owner, "Анна")
         self.assertEqual(leads[0].risk_flags, ["Проверить репутацию"])
+
+    def test_google_sheets_service_offer_methods(self) -> None:
+        spreadsheet = FakeSpreadsheet()
+        store = GoogleSheetsStore("sheet", "service.json")
+        with patch.object(store, "_open", return_value=spreadsheet):
+            store.init_store()
+            offer = ServiceOffer.from_values(
+                name="Корпоративная лекция",
+                offer_type="corporate_lecture",
+                audience="HR-команды",
+                format="Онлайн",
+            )
+            offer.requirements = ["Бриф"]
+            store.upsert_service_offer(offer)
+            updated = store.update_service_offer_fields(offer.id, {"status": "ready_for_review", "owner": "Анна"})
+            offers = store.list_service_offers()
+        self.assertEqual(updated.status, "ready_for_review")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(offers[0].requirements, ["Бриф"])
 
 
 class FakeWorksheet:

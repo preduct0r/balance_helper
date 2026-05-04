@@ -5,9 +5,11 @@ from balance_fundraising.domain.models import (
     FundWikiEntry,
     FundraisingLead,
     Opportunity,
+    ServiceOffer,
     application_id_for_opportunity,
     lead_id_for_values,
     opportunity_id_for_url,
+    service_offer_id_for_values,
 )
 
 __all__ = [
@@ -17,7 +19,9 @@ __all__ = [
     "FundWikiEntry",
     "FundraisingLead",
     "Opportunity",
+    "ServiceOffer",
     "application_id_for_opportunity",
     "lead_id_for_values",
     "opportunity_id_for_url",
+    "service_offer_id_for_values",
 ]

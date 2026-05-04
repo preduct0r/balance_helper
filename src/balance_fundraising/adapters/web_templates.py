@@ -5,7 +5,7 @@ from html import escape
 from typing import Iterable, List
 
 from balance_fundraising.adapters.web_static import WEB_CSS
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 from balance_fundraising.services.applications import (
     APPLICATION_STATUS_LABELS,
     REPORTING_STATE_LABELS,
@@ -14,6 +14,7 @@ from balance_fundraising.services.applications import (
 )
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key, fund_wiki_label
 from balance_fundraising.services.leads import LEAD_CATEGORIES, LEAD_STATUSES, lead_category_label, lead_status_label
+from balance_fundraising.services.offers import OFFER_STATUSES, OFFER_TYPES, build_offer_description, offer_status_label, offer_type_label
 from balance_fundraising.services.readiness import ReadinessReport
 
 STATUS_LABELS = {
@@ -29,6 +30,7 @@ REVIEW_STATE_LABELS = {
     "needs_clarification": "Нужно уточнить",
     "ready_for_human": "Готово к ручной проверке",
     "reviewed": "Проверено человеком",
+    "approved": "Проверено",
 }
 
 READINESS_STATE_LABELS = {
@@ -52,7 +54,7 @@ def render_layout(title: str, body: str) -> str:
 <body>
   <header>
     <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/b2b">B2B</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
+    <nav><a href="/">Рабочий стол</a><a href="/radar">Радар</a><a href="/b2b">B2B</a><a href="/offers">Услуги</a><a href="/opportunities">Возможности</a><a href="/applications">Заявки</a><a href="/leads">Контакты и направления</a><a href="/review">Проверка</a><a href="/fund-wiki">Паспорт фонда</a><a href="/first-run">Первый прогон</a></nav>
   </header>
   <main>{body}</main>
 </body>
@@ -121,6 +123,18 @@ def render_lead_list_page(leads: Iterable[FundraisingLead]) -> str:
         render_add_lead_form(),
     ]
     return render_layout("Контакты и направления", "\n".join(body))
+
+
+def render_service_offer_list_page(offers: Iterable[ServiceOffer]) -> str:
+    body = [
+        "<section>",
+        "<h2>Услуги фонда</h2>",
+        "<p class=\"muted\">Внутренний список платных услуг и образовательных форматов. Система ничего не продает и не отправляет наружу.</p>",
+        render_service_offer_table(offers, empty_text="Пока нет платных услуг."),
+        "</section>",
+        render_add_service_offer_form(),
+    ]
+    return render_layout("Услуги", "\n".join(body))
 
 
 def render_b2b_page(
@@ -332,7 +346,13 @@ def render_lead_detail_page(lead: FundraisingLead, activity: Iterable[ActivityLo
     return render_layout("Карточка контакта", "\n".join(body))
 
 
-def render_b2b_detail_page(lead: FundraisingLead, *, draft: str, activity: Iterable[ActivityLogEntry]) -> str:
+def render_b2b_detail_page(
+    lead: FundraisingLead,
+    *,
+    draft: str,
+    activity: Iterable[ActivityLogEntry],
+    service_offers: Iterable[ServiceOffer] = (),
+) -> str:
     body = [
         "<section>",
         "<h2>B2B карточка</h2>",
@@ -351,6 +371,7 @@ def render_b2b_detail_page(lead: FundraisingLead, *, draft: str, activity: Itera
         "<section><h2>Риски</h2>" + render_list(lead.risk_flags, empty_text="Риски пока не отмечены.") + "</section>",
         "<section><h2>Что неизвестно</h2>" + render_list(lead.missing_info, empty_text="Нет отмеченных пробелов.") + "</section>",
         "<section><h2>Подтверждения</h2>" + render_evidence(lead.source_snippets) + "</section>",
+        "<section><h2>Варианты услуг</h2>" + render_service_offer_list(service_offers) + "</section>",
         render_b2b_analyze_form(lead.id),
         "<section>",
         "<h2>Черновик и one-pager</h2>",
@@ -362,6 +383,39 @@ def render_b2b_detail_page(lead: FundraisingLead, *, draft: str, activity: Itera
         "</section>",
     ]
     return render_layout("B2B карточка", "\n".join(body))
+
+
+def render_service_offer_detail_page(
+    *,
+    offer: ServiceOffer,
+    draft: str,
+    activity: Iterable[ActivityLogEntry],
+) -> str:
+    body = [
+        "<section>",
+        "<h2>Карточка услуги</h2>",
+        "<div class=\"callout\">Система ничего не продает и не обещает результат. Описание ниже нужно только для ручной проверки.</div>",
+        f"<p>{status_badge(offer_status_label(offer.status))} {review_badge(offer.review_state)}</p>",
+        fact_row("Название", offer.name),
+        fact_row("Тип", offer_type_label(offer.offer_type)),
+        fact_row("Аудитория", offer.audience or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Формат", offer.format or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Ценность", offer.value_proposition or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Ответственный", offer.owner or "Не назначен"),
+        fact_row("Заметка", offer.notes or "Нет заметки"),
+        "</section>",
+        render_service_offer_actions(offer),
+        "<section><h2>Требования</h2>" + render_list(offer.requirements, empty_text="[НУЖНО УТОЧНИТЬ] Что нужно от компании") + "</section>",
+        "<section><h2>Материалы</h2>" + render_list(offer.materials_needed, empty_text="[НУЖНО УТОЧНИТЬ] Материалы для услуги") + "</section>",
+        "<section><h2>Что неизвестно</h2>" + render_list(offer.missing_info, empty_text="Нет отмеченных пробелов.") + "</section>",
+        "<section><h2>Подтверждения</h2>" + render_evidence(offer.source_snippets) + "</section>",
+        "<section><h2>Описание для ручной проверки</h2>" f"<pre>{escape(draft)}</pre>" "</section>",
+        "<section>",
+        "<h2>История</h2>",
+        render_activity_log(activity, empty_text="История услуги пока пуста."),
+        "</section>",
+    ]
+    return render_layout("Карточка услуги", "\n".join(body))
 
 
 def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
@@ -525,6 +579,22 @@ def render_add_lead_form() -> str:
     )
 
 
+def render_add_service_offer_form() -> str:
+    return (
+        "<section>"
+        "<h2>Добавить услугу</h2>"
+        "<form method=\"post\" action=\"/offers\">"
+        "<label>Название <input name=\"name\" required placeholder=\"Например: корпоративная лекция\"></label>"
+        f"<label>Тип <select name=\"offer_type\">{offer_type_options('corporate_lecture')}</select></label>"
+        "<label>Аудитория <input name=\"audience\" placeholder=\"HR-команды, руководители, начинающие психологи\"></label>"
+        "<label>Формат <input name=\"format\" placeholder=\"Онлайн 90 минут, очный workshop\"></label>"
+        "<label>Ценность <textarea name=\"value_proposition\" rows=\"4\" placeholder=\"Что получает компания или участник\"></textarea></label>"
+        "<button type=\"submit\">Добавить услугу</button>"
+        "</form>"
+        "</section>"
+    )
+
+
 def render_opportunity_table(opportunities: Iterable[Opportunity], *, empty_text: str) -> str:
     rows = list(opportunities)
     if not rows:
@@ -602,6 +672,40 @@ def render_lead_table(leads: Iterable[FundraisingLead], *, empty_text: str) -> s
         f"<tbody>{''.join(body_rows)}</tbody>"
         "</table>"
     )
+
+
+def render_service_offer_table(offers: Iterable[ServiceOffer], *, empty_text: str) -> str:
+    rows = list(offers)
+    if not rows:
+        return f"<p class=\"muted\">{escape(empty_text)}</p>"
+    body_rows = []
+    for offer in rows:
+        body_rows.append(
+            "<tr>"
+            f"<td><a href=\"/offers/{escape(offer.id)}\">{escape(offer.name)}</a><br><span class=\"muted\">{escape(offer_type_label(offer.offer_type))}</span></td>"
+            f"<td>{status_badge(offer_status_label(offer.status))}<br>{review_badge(offer.review_state)}</td>"
+            f"<td>{escape(offer.audience or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(offer.format or '[НУЖНО УТОЧНИТЬ]')}</td>"
+            f"<td>{escape(offer.owner or 'Не назначен')}</td>"
+            f"<td>{escape('; '.join(offer.missing_info) if offer.missing_info else 'Проверить описание')}</td>"
+            "</tr>"
+        )
+    return (
+        "<table>"
+        "<thead><tr><th>Услуга</th><th>Состояние</th><th>Аудитория</th><th>Формат</th><th>Ответственный</th><th>Пробелы</th></tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+
+
+def render_service_offer_list(offers: Iterable[ServiceOffer]) -> str:
+    rows = list(offers)
+    if not rows:
+        return "<p class=\"needs-info\">[НУЖНО УТОЧНИТЬ] Нет проверенных услуг для предложения.</p>"
+    return "<ul>" + "".join(
+        f"<li><a href=\"/offers/{escape(offer.id)}\">{escape(offer.name)}</a>: {escape(offer.value_proposition or '[НУЖНО УТОЧНИТЬ]')}</li>"
+        for offer in rows
+    ) + "</ul>"
 
 
 def render_checklist_items(opportunity: Opportunity, items: Iterable[str]) -> str:
@@ -739,6 +843,52 @@ def render_lead_actions(lead: FundraisingLead) -> str:
     )
 
 
+def render_service_offer_actions(offer: ServiceOffer) -> str:
+    return (
+        "<section>"
+        "<h2>Работа с услугой</h2>"
+        "<form method=\"post\" action=\"/offers/{id}\">"
+        "<label>Аудитория <input name=\"audience\" value=\"{audience}\" placeholder=\"Для кого услуга\"></label>"
+        "<label>Формат <input name=\"format\" value=\"{format}\" placeholder=\"Онлайн, очно, длительность\"></label>"
+        "<label>Ценность <textarea name=\"value_proposition\" rows=\"4\">{value}</textarea></label>"
+        "<label>Требования<textarea name=\"requirements\" rows=\"4\" placeholder=\"Каждый пункт с новой строки\">{requirements}</textarea></label>"
+        "<label>Материалы<textarea name=\"materials_needed\" rows=\"4\" placeholder=\"Каждый пункт с новой строки\">{materials}</textarea></label>"
+        "<label>Подтверждения<textarea name=\"source_snippets\" rows=\"4\" placeholder=\"Фрагменты утвержденных материалов\">{snippets}</textarea></label>"
+        "<label>Что неизвестно<textarea name=\"missing_info\" rows=\"4\" placeholder=\"Каждый пункт с новой строки\">{missing}</textarea></label>"
+        "<button type=\"submit\">Сохранить описание</button>"
+        "</form>"
+        "<div class=\"toolbar\">"
+        "<form method=\"post\" action=\"/offers/{id}/status\">"
+        "<label>Статус <select name=\"status\">{status_options}</select></label>"
+        "<label>Проверка <select name=\"review_state\">{review_options}</select></label>"
+        "<button type=\"submit\">Сохранить состояние</button>"
+        "</form>"
+        "<form method=\"post\" action=\"/offers/{id}/owner\">"
+        "<label>Ответственный <input name=\"owner\" value=\"{owner}\" placeholder=\"Имя\"></label>"
+        "<button type=\"submit\">Назначить</button>"
+        "</form>"
+        "</div>"
+        "<form method=\"post\" action=\"/offers/{id}/note\">"
+        "<label>Заметка <textarea name=\"notes\" rows=\"4\" placeholder=\"Внутренний контекст, не для черновиков\">{notes}</textarea></label>"
+        "<button type=\"submit\">Сохранить заметку</button>"
+        "</form>"
+        "</section>"
+    ).format(
+        id=escape(offer.id),
+        audience=escape(offer.audience, quote=True),
+        format=escape(offer.format, quote=True),
+        value=escape(offer.value_proposition),
+        requirements=escape("\n".join(offer.requirements)),
+        materials=escape("\n".join(offer.materials_needed)),
+        snippets=escape("\n".join(offer.source_snippets)),
+        missing=escape("\n".join(offer.missing_info)),
+        status_options=offer_status_options(offer.status),
+        review_options=offer_review_options(offer.review_state),
+        owner=escape(offer.owner, quote=True),
+        notes=escape(offer.notes),
+    )
+
+
 def render_analyze_form(opportunity_id: str) -> str:
     return (
         "<section>"
@@ -798,6 +948,23 @@ def lead_category_options(current: str) -> str:
 
 def lead_status_options(current: str) -> str:
     return "".join(option(value, label, current) for value, label in LEAD_STATUSES.items())
+
+
+def offer_type_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in OFFER_TYPES.items())
+
+
+def offer_status_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in OFFER_STATUSES.items())
+
+
+def offer_review_options(current: str) -> str:
+    states = {
+        "needs_review": "Нужно проверить",
+        "approved": "Проверено",
+        "needs_update": "Нужно обновить",
+    }
+    return "".join(option(value, label, current) for value, label in states.items())
 
 
 def application_status_options(current: str) -> str:

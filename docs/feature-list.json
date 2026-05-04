@@ -207,7 +207,7 @@
       "B2B drafts can reference selected approved offers.",
       "Unknown prices or promises are marked instead of guessed."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "events-merch-agent",

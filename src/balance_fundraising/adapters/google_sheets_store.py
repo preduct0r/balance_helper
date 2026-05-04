@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 from balance_fundraising.adapters.local_json_store import DEFAULT_FUND_WIKI, TABLES
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 
 
 class GoogleSheetsStore:
@@ -86,6 +86,25 @@ class GoogleSheetsStore:
             setattr(lead, key, value)
         self.upsert_lead(lead)
         return lead
+
+    def upsert_service_offer(self, offer: ServiceOffer) -> None:
+        self._upsert_row("ServiceOffers", "id", offer.to_dict())
+
+    def get_service_offer(self, offer_id: str) -> ServiceOffer:
+        for offer in self.list_service_offers():
+            if offer.id == offer_id:
+                return offer
+        raise KeyError(f"Service offer not found: {offer_id}")
+
+    def list_service_offers(self) -> List[ServiceOffer]:
+        return [ServiceOffer.from_dict(row) for row in self._records("ServiceOffers") if row.get("id")]
+
+    def update_service_offer_fields(self, offer_id: str, fields: Dict[str, object]) -> ServiceOffer:
+        offer = self.get_service_offer(offer_id)
+        for key, value in fields.items():
+            setattr(offer, key, value)
+        self.upsert_service_offer(offer)
+        return offer
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         return [FundWikiEntry.from_dict(row) for row in self._records("FundWiki") if row.get("key")]

@@ -115,6 +115,8 @@ Make "Паспорт фонда" editable in the local web UI and show required 
 
 Add separate workspaces for B2B, private donors, bloggers, events, merch, and paid services while preserving the same dashboard, review queue, and FundWiki patterns.
 
+Phase 4 has started with "Услуги": operators can create and review paid service offers, track missing materials and unsafe promises, and let B2B drafts reference approved offers. The system still does not sell, publish, invoice, or send external messages.
+
 ## Engineering Implications
 
 - Keep service logic outside the UI so CLI, Telegram, and web screens reuse the same services.

@@ -26,6 +26,14 @@ from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.doctor import doctor_has_errors, format_doctor_report, run_doctor
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.leads import create_lead, lead_category_label, lead_status_label, update_lead_status
+from balance_fundraising.services.offers import (
+    build_offer_description,
+    create_service_offer,
+    offer_status_label,
+    offer_type_label,
+    update_service_offer_note,
+    update_service_offer_status,
+)
 from balance_fundraising.yandex_api import load_env_file
 
 
@@ -48,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("seed-demo")
     subparsers.add_parser("applications")
     subparsers.add_parser("leads")
+    subparsers.add_parser("offers")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -103,6 +112,23 @@ def main(argv: list[str] | None = None) -> int:
 
     b2b_draft = subparsers.add_parser("b2b-draft")
     b2b_draft.add_argument("lead_id")
+
+    offer_add = subparsers.add_parser("offer-add")
+    offer_add.add_argument("--name", required=True)
+    offer_add.add_argument("--type", dest="offer_type", default="educational_product")
+    offer_add.add_argument("--audience", default="")
+    offer_add.add_argument("--format", default="")
+
+    offer_show = subparsers.add_parser("offer-show")
+    offer_show.add_argument("offer_id")
+
+    offer_status = subparsers.add_parser("offer-status")
+    offer_status.add_argument("offer_id")
+    offer_status.add_argument("status")
+
+    offer_note = subparsers.add_parser("offer-note")
+    offer_note.add_argument("offer_id")
+    offer_note.add_argument("text")
 
     subparsers.add_parser("bot")
 
@@ -161,6 +187,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "leads":
         for lead in store.list_leads():
             print(f"{lead.id}\t{lead.category}\t{lead.name}\t{lead.status}\t{lead.next_action}")
+        return 0
+    if args.command == "offers":
+        for offer in store.list_service_offers():
+            print(f"{offer.id}\t{offer.offer_type}\t{offer.name}\t{offer.status}\t{offer.audience}")
         return 0
     if args.command == "application-create":
         application = create_application_for_opportunity(store, args.opportunity_id)
@@ -221,7 +251,33 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Analyzed B2B {lead.id}: {lead.fit_for_fund}")
         return 0
     if args.command == "b2b-draft":
-        print(build_b2b_draft(store.get_lead(args.lead_id), store.list_fund_wiki()))
+        print(build_b2b_draft(store.get_lead(args.lead_id), store.list_fund_wiki(), store.list_service_offers()))
+        return 0
+    if args.command == "offer-add":
+        offer = create_service_offer(
+            store,
+            name=args.name,
+            offer_type=args.offer_type,
+            audience=args.audience,
+            format=args.format,
+        )
+        print(offer.id)
+        return 0
+    if args.command == "offer-status":
+        offer = update_service_offer_status(store, args.offer_id, status=args.status)
+        print(f"{offer.id}: {offer.status}")
+        return 0
+    if args.command == "offer-note":
+        offer = update_service_offer_note(store, args.offer_id, args.text)
+        print(f"{offer.id}: note updated")
+        return 0
+    if args.command == "offer-show":
+        offer = store.get_service_offer(args.offer_id)
+        print(f"{offer.id}\t{offer_type_label(offer.offer_type)}\t{offer.name}\t{offer_status_label(offer.status)}")
+        print(f"audience: {offer.audience or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"format: {offer.format or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"owner: {offer.owner or 'Не назначен'}")
+        print(build_offer_description(offer, store.list_fund_wiki()))
         return 0
     if args.command == "analyze":
         text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else None

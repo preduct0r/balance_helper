@@ -6,7 +6,8 @@ from datetime import date
 from typing import Iterable, List
 
 from balance_fundraising.app_defaults import DEFAULT_B2B_QUERIES
-from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, FundraisingLead
+from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, FundraisingLead, ServiceOffer
+from balance_fundraising.services.offers import approved_service_offers, build_offer_description
 
 
 @dataclass
@@ -114,7 +115,11 @@ def analyze_b2b_lead(store, lead_id: str, *, text: str) -> FundraisingLead:
     return lead
 
 
-def build_b2b_draft(lead: FundraisingLead, fund_wiki: Iterable[FundWikiEntry]) -> str:
+def build_b2b_draft(
+    lead: FundraisingLead,
+    fund_wiki: Iterable[FundWikiEntry],
+    service_offers: Iterable[ServiceOffer] = (),
+) -> str:
     wiki = {entry.key: entry.value for entry in fund_wiki if entry.review_state == "approved" and entry.value}
     mission = wiki.get("mission", "[НУЖНО УТОЧНИТЬ]")
     programs = wiki.get("programs", "[НУЖНО УТОЧНИТЬ]")
@@ -122,6 +127,11 @@ def build_b2b_draft(lead: FundraisingLead, fund_wiki: Iterable[FundWikiEntry]) -
     evidence = "; ".join(lead.source_snippets) if lead.source_snippets else "[НУЖНО УТОЧНИТЬ]"
     contact = lead.contact or "[НУЖНО УТОЧНИТЬ]"
     fit = lead.fit_for_fund if lead.fit_for_fund != "unknown" else "[НУЖНО УТОЧНИТЬ]"
+    approved_offers = approved_service_offers(service_offers)
+    offer = approved_offers[0] if approved_offers else None
+    offer_name = offer.name if offer else "[НУЖНО УТОЧНИТЬ]"
+    offer_value = offer.value_proposition if offer and offer.value_proposition else "[НУЖНО УТОЧНИТЬ]"
+    offer_description = build_offer_description(offer, fund_wiki) if offer else "[НУЖНО УТОЧНИТЬ]"
     return "\n".join(
         [
             "Черновик первого письма",
@@ -134,15 +144,17 @@ def build_b2b_draft(lead: FundraisingLead, fund_wiki: Iterable[FundWikiEntry]) -
             f"Меня зовут [НУЖНО УТОЧНИТЬ], я представляю фонд «Равновесие». Наша миссия: {mission}",
             f"Пишем вам, потому что видим возможное пересечение с темой: {fit}. Подтверждение из источника: {evidence}",
             f"Фонд развивает программы: {programs}",
-            "Будем рады обсудить аккуратный формат партнерства: корпоративная лекция, поддержка конкретной статьи расходов или другой формат, который команда проверит вручную.",
+            f"Как возможный формат предлагаем обсудить: {offer_name}. Суть предложения: {offer_value}",
             "",
             "One-pager",
             f"- Организация: {lead.name}",
             f"- Гипотеза fit: {fit}",
+            f"- Вариант услуги: {offer_name}",
             f"- Миссия фонда: {mission}",
             f"- Программы фонда: {programs}",
             f"- Социальный результат: {impact}",
             f"- Подтверждения: {evidence}",
+            f"- Описание услуги: {offer_description}",
             "- Следующий шаг: проверить факты, контакт и формулировки человеком.",
         ]
     )

@@ -22,11 +22,13 @@ from balance_fundraising.adapters.web import (
     render_lead_detail,
     render_leads,
     render_opportunity_detail,
+    render_offer_detail,
+    render_offers,
     render_radar,
     render_review_queue,
 )
 from balance_fundraising.clients.yandex_search import SearchResult
-from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, FundraisingLead, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 
 
 class WebUiTests(unittest.TestCase):
@@ -189,6 +191,58 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("One-pager", detail_html)
         self.assertIn("ничего не отправляет", detail_html)
 
+    def test_offers_workspace_and_b2b_detail_show_approved_offer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store)
+            status, location = app.post(
+                "/offers",
+                {
+                    "name": "Корпоративная лекция",
+                    "offer_type": "corporate_lecture",
+                    "audience": "HR-команды",
+                    "format": "Онлайн",
+                    "value_proposition": "Психопросвещение для сотрудников",
+                },
+            )
+            offer_id = location.rsplit("/", 1)[-1]
+            app.post(
+                f"/offers/{offer_id}",
+                {
+                    "audience": "HR и руководители",
+                    "format": "Онлайн 90 минут",
+                    "value_proposition": "Психопросвещение для сотрудников",
+                    "requirements": "Бриф",
+                    "materials_needed": "Презентация",
+                    "source_snippets": "Описание проверено командой",
+                    "missing_info": "Уточнить цену",
+                },
+            )
+            app.post(f"/offers/{offer_id}/owner", {"owner": "Анна"})
+            app.post(f"/offers/{offer_id}/status", {"status": "approved", "review_state": "approved"})
+            app.post(f"/offers/{offer_id}/note", {"notes": "Использовать только после ручной проверки"})
+            lead = FundraisingLead.from_values(category="b2b", name="HR Tech", url="https://hr.example")
+            lead.fit_for_fund = "HR wellbeing"
+            lead.source_snippets = ["Компания пишет про wellbeing"]
+            store.upsert_lead(lead)
+            offers_html = render_offers(store)
+            detail_html = render_offer_detail(store, offer_id)
+            b2b_html = render_b2b_detail(store, lead.id)
+            updated = store.get_service_offer(offer_id)
+        self.assertEqual(status, 303)
+        self.assertEqual(location, f"/offers/{offer_id}")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(updated.status, "approved")
+        self.assertEqual(updated.review_state, "approved")
+        self.assertIn("Услуги", offers_html)
+        self.assertIn("Корпоративная лекция", offers_html)
+        self.assertIn("Карточка услуги", detail_html)
+        self.assertIn("Уточнить цену", detail_html)
+        self.assertIn("ничего не продает", detail_html)
+        self.assertIn("Корпоративная лекция", b2b_html)
+        self.assertIn("Психопросвещение для сотрудников", b2b_html)
+
     def test_add_link_handler_creates_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = LocalJsonStore(Path(tmp) / "store.json")
@@ -256,6 +310,7 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/radar")[0], 200)
             self.assertEqual(app.render("/leads")[0], 200)
             self.assertEqual(app.render("/b2b")[0], 200)
+            self.assertEqual(app.render("/offers")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -265,6 +320,10 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(lead_status, 303)
             self.assertEqual(app.render(f"/leads/{lead_id}")[0], 200)
             self.assertEqual(app.render(f"/b2b/{lead_id}")[0], 200)
+            offer_status, offer_location = app.post("/offers", {"name": "Новая услуга", "offer_type": "educational_product"})
+            offer_id = offer_location.rsplit("/", 1)[-1]
+            self.assertEqual(offer_status, 303)
+            self.assertEqual(app.render(f"/offers/{offer_id}")[0], 200)
             app.post(f"/opportunities/{opportunity_id}/analyze", {"source_text": "НКО. Нужна отчетность."})
             detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
         self.assertEqual(detail_status, 200)

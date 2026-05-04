@@ -98,6 +98,8 @@ Status: v1 implemented as a local-first B2B workspace. It creates `FundraisingLe
 - Черновики лендингов, коммерческих предложений и сценариев звонков.
 - Анализ спроса, обратной связи и конверсий.
 
+Status: v1 implemented as a local-first service offer workspace. It stores reviewed offers, highlights missing price/result promises instead of guessing them, and lets B2B drafts reference approved offers without sending anything externally.
+
 ## Shared Principles
 
 - Человек утверждает все внешние действия.

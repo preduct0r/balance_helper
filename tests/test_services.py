@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
 from balance_fundraising.clients.yandex_search import SearchResult
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 from balance_fundraising.services.applications import (
     build_reporting_checklist,
     create_application_for_opportunity,
@@ -31,6 +31,14 @@ from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.draft import build_application_draft
+from balance_fundraising.services.offers import (
+    build_offer_description,
+    build_offer_readiness,
+    create_service_offer,
+    update_service_offer_note,
+    update_service_offer_owner,
+    update_service_offer_status,
+)
 from balance_fundraising.services.readiness import build_readiness
 
 
@@ -275,6 +283,78 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(stored.status, "contact_planned")
         self.assertEqual(stored.risk_flags, ["Проверить репутацию"])
 
+    def test_service_offer_defaults_and_local_store_updates(self) -> None:
+        offer = ServiceOffer.from_values(
+            name="Корпоративная лекция",
+            offer_type="corporate_lecture",
+            audience="HR-команды",
+            format="Онлайн 90 минут",
+        )
+        parsed = ServiceOffer.from_dict(
+            {
+                "id": offer.id,
+                "name": offer.name,
+                "offer_type": offer.offer_type,
+                "requirements": "Бриф\nСогласование темы",
+                "materials_needed": "Презентация",
+                "source_snippets": "Описание услуги",
+                "missing_info": "Цена",
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            store.upsert_service_offer(offer)
+            updated = store.update_service_offer_fields(
+                offer.id,
+                {"owner": "Анна", "status": "ready_for_review", "requirements": ["Бриф"]},
+            )
+            stored = store.get_service_offer(offer.id)
+            with self.assertRaises(KeyError):
+                store.update_service_offer_fields(offer.id, {"unknown_field": "x"})
+        self.assertTrue(offer.id.startswith("offer_"))
+        self.assertEqual(offer.review_state, "needs_review")
+        self.assertEqual(parsed.requirements, ["Бриф", "Согласование темы"])
+        self.assertEqual(parsed.materials_needed, ["Презентация"])
+        self.assertEqual(parsed.source_snippets, ["Описание услуги"])
+        self.assertEqual(parsed.missing_info, ["Цена"])
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(stored.status, "ready_for_review")
+        self.assertEqual(stored.requirements, ["Бриф"])
+
+    def test_service_offer_services_gap_and_draft(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            offer = create_service_offer(
+                store,
+                name="Wellbeing workshop",
+                offer_type="wellbeing_workshop",
+                audience="HR и руководители команд",
+                format="Онлайн",
+            )
+            offer.value_proposition = "Бережный разговор о ментальном здоровье на работе"
+            offer.materials_needed = ["Презентация", "Бриф"]
+            offer.requirements = ["Согласовать тему"]
+            store.upsert_service_offer(offer)
+            update_service_offer_owner(store, offer.id, "Мария")
+            update_service_offer_note(store, offer.id, "Внутренняя заметка: не использовать в тексте")
+            update_service_offer_status(store, offer.id, status="ready_for_review", review_state="approved")
+            stored = store.get_service_offer(offer.id)
+            readiness = build_offer_readiness(stored)
+            draft = build_offer_description(stored, store.list_fund_wiki())
+            activity = store.list_activity()
+        self.assertFalse(readiness)
+        self.assertEqual(stored.review_state, "approved")
+        self.assertIn("Уточнить цену", stored.missing_info)
+        self.assertIn("Уточнить обещания результата", stored.missing_info)
+        self.assertIn("Wellbeing workshop", draft)
+        self.assertIn("Помогать людям с психическими расстройствами", draft)
+        self.assertIn("Бережный разговор", draft)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", draft)
+        self.assertNotIn("не использовать", draft)
+        self.assertTrue(any(item.action == "offer_status" for item in activity))
+
     def test_digest_includes_lead_followups_and_review(self) -> None:
         lead = FundraisingLead.from_values(category="b2b", name="HR partner", url="https://hr.example")
         lead.recheck_at = "2026-04-12"
@@ -351,9 +431,20 @@ class ServiceTests(unittest.TestCase):
             lead.source_snippets = ["Компания пишет про wellbeing"]
             lead.notes = "Секретная заметка: нельзя использовать"
             store.upsert_lead(lead)
-            draft = build_b2b_draft(lead, store.list_fund_wiki())
+            offer = ServiceOffer.from_values(
+                name="Корпоративная лекция",
+                offer_type="corporate_lecture",
+                audience="HR-команды",
+                format="Онлайн",
+            )
+            offer.value_proposition = "Психопросвещение для сотрудников"
+            offer.review_state = "approved"
+            store.upsert_service_offer(offer)
+            draft = build_b2b_draft(lead, store.list_fund_wiki(), store.list_service_offers())
         self.assertIn("Черновик первого письма", draft)
         self.assertIn("One-pager", draft)
+        self.assertIn("Корпоративная лекция", draft)
+        self.assertIn("Психопросвещение для сотрудников", draft)
         self.assertIn("Помогать людям с психическими расстройствами", draft)
         self.assertIn("HR wellbeing", draft)
         self.assertIn("Компания пишет про wellbeing", draft)

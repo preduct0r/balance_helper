@@ -85,10 +85,24 @@ def main() -> int:
             f"/b2b/{b2b_lead.id}/analyze",
             {"source_text": "Компания развивает HR wellbeing и корпоративное обучение. Есть форма обратной связи."},
         )
+        offer_status, offer_location = app.post(
+            "/offers",
+            {
+                "name": "Корпоративная лекция",
+                "offer_type": "corporate_lecture",
+                "audience": "HR-команды",
+                "format": "Онлайн 90 минут",
+                "value_proposition": "Психопросвещение для сотрудников",
+            },
+        )
+        offer_id = offer_location.rsplit("/", 1)[-1]
+        app.post(f"/offers/{offer_id}/status", {"status": "approved", "review_state": "approved"})
         root_status, root_html = app.render("/")
         radar_status, radar_html = app.render("/radar")
         b2b_status, b2b_html = app.render("/b2b")
         b2b_detail_status, b2b_detail_html = app.render(f"/b2b/{b2b_lead.id}")
+        offers_status, offers_html = app.render("/offers")
+        offer_detail_status, offer_detail_html = app.render(f"/offers/{offer_id}")
         leads_status, leads_html = app.render("/leads")
         lead_detail_status, lead_detail_html = app.render(f"/leads/{lead.id}")
         applications_status, applications_html = app.render("/applications")
@@ -101,6 +115,9 @@ def main() -> int:
     assert radar_status == 200
     assert b2b_status == 200
     assert b2b_detail_status == 200
+    assert offer_status == 303
+    assert offers_status == 200
+    assert offer_detail_status == 200
     assert leads_status == 200
     assert lead_detail_status == 200
     assert applications_status == 200
@@ -115,6 +132,9 @@ def main() -> int:
     assert "B2B" in b2b_html
     assert "B2B компания" in b2b_detail_html
     assert "Черновик первого письма" in b2b_detail_html
+    assert "Корпоративная лекция" in b2b_detail_html
+    assert "Услуги" in offers_html
+    assert "Корпоративная лекция" in offer_detail_html
     assert "Контакты и направления" in leads_html
     assert "Компания заботы" in lead_detail_html
     assert "ничего не отправляет" in lead_detail_html

@@ -22,6 +22,11 @@ def lead_id_for_values(category: str, name: str, url: str = "", organization: st
     return f"lead_{digest}"
 
 
+def service_offer_id_for_values(name: str, offer_type: str) -> str:
+    digest = hashlib.sha1(f"{offer_type}|{name}".encode("utf-8")).hexdigest()[:10]
+    return f"offer_{digest}"
+
+
 def activity_id_for_values(timestamp: str, action: str, entity_id: str, details: str) -> str:
     digest = hashlib.sha1(f"{timestamp}|{action}|{entity_id}|{details}".encode("utf-8")).hexdigest()[:10]
     return f"act_{digest}"
@@ -199,6 +204,60 @@ class FundraisingLead:
                 value = _coerce_list(value)
             elif field_name == "confidence":
                 value = _coerce_float(value)
+            if value is None and field_info.default is not MISSING:
+                continue
+            payload[field_name] = value
+        return cls(**payload)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class ServiceOffer:
+    id: str
+    name: str = "[НУЖНО УТОЧНИТЬ]"
+    offer_type: str = "educational_product"
+    audience: str = ""
+    format: str = ""
+    value_proposition: str = ""
+    requirements: List[str] = field(default_factory=list)
+    materials_needed: List[str] = field(default_factory=list)
+    status: str = "needs_review"
+    owner: str = ""
+    notes: str = ""
+    review_state: str = "needs_review"
+    source_snippets: List[str] = field(default_factory=list)
+    missing_info: List[str] = field(default_factory=list)
+
+    @classmethod
+    def from_values(
+        cls,
+        *,
+        name: str,
+        offer_type: str,
+        audience: str = "",
+        format: str = "",
+    ) -> "ServiceOffer":
+        return cls(
+            id=service_offer_id_for_values(name or "[НУЖНО УТОЧНИТЬ]", offer_type or "educational_product"),
+            name=name or "[НУЖНО УТОЧНИТЬ]",
+            offer_type=offer_type or "educational_product",
+            audience=audience,
+            format=format,
+        )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ServiceOffer":
+        values = dict(data)
+        payload: Dict[str, Any] = {}
+        list_fields = {"requirements", "materials_needed", "source_snippets", "missing_info"}
+        for field_name, field_info in cls.__dataclass_fields__.items():
+            if field_name not in values:
+                continue
+            value = values[field_name]
+            if field_name in list_fields:
+                value = _coerce_list(value)
             if value is None and field_info.default is not MISSING:
                 continue
             payload[field_name] = value

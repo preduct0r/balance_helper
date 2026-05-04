@@ -249,6 +249,60 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("Черновик первого письма", draft_text)
         self.assertIn("One-pager", draft_text)
 
+    def test_cli_offer_commands_and_b2b_draft_uses_approved_offer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                add_code = cli_main(
+                    [
+                        "--store",
+                        str(store_path),
+                        "offer-add",
+                        "--name",
+                        "Корпоративная лекция",
+                        "--type",
+                        "corporate_lecture",
+                        "--audience",
+                        "HR-команды",
+                        "--format",
+                        "Онлайн",
+                    ]
+                )
+            offer_id = output.getvalue().strip()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                status_code = cli_main(["--store", str(store_path), "offer-status", offer_id, "approved"])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                note_code = cli_main(["--store", str(store_path), "offer-note", offer_id, "Проверено вручную"])
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                list_code = cli_main(["--store", str(store_path), "offers"])
+            list_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                show_code = cli_main(["--store", str(store_path), "offer-show", offer_id])
+            show_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                lead_code = cli_main(["--store", str(store_path), "lead-add", "--category", "b2b", "--name", "HR Tech"])
+            lead_id = output.getvalue().strip()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                draft_code = cli_main(["--store", str(store_path), "b2b-draft", lead_id])
+            draft_text = output.getvalue()
+        self.assertEqual(add_code, 0)
+        self.assertEqual(status_code, 0)
+        self.assertEqual(note_code, 0)
+        self.assertEqual(list_code, 0)
+        self.assertEqual(show_code, 0)
+        self.assertEqual(lead_code, 0)
+        self.assertEqual(draft_code, 0)
+        self.assertIn("Корпоративная лекция", list_text)
+        self.assertIn("HR-команды", show_text)
+        self.assertIn("Корпоративная лекция", draft_text)
+
 
 class FakeStore:
     def __init__(self) -> None:

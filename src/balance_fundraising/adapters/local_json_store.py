@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, FundraisingLead, Opportunity, ServiceOffer
 
-TABLES = ["Opportunities", "Applications", "Leads", "FundWiki", "Documents", "ActivityLog"]
+TABLES = ["Opportunities", "Applications", "Leads", "ServiceOffers", "FundWiki", "Documents", "ActivityLog"]
 
 DEFAULT_FUND_WIKI = [
     FundWikiEntry(
@@ -146,6 +146,37 @@ class LocalJsonStore:
             setattr(lead, key, value)
         self.upsert_lead(lead)
         return lead
+
+    def upsert_service_offer(self, offer: ServiceOffer) -> None:
+        data = self._read_initialized()
+        rows = data["ServiceOffers"]
+        payload = offer.to_dict()
+        for index, row in enumerate(rows):
+            if row["id"] == offer.id:
+                rows[index] = payload
+                break
+        else:
+            rows.append(payload)
+        self._write(data)
+
+    def get_service_offer(self, offer_id: str) -> ServiceOffer:
+        for offer in self.list_service_offers():
+            if offer.id == offer_id:
+                return offer
+        raise KeyError(f"Service offer not found: {offer_id}")
+
+    def list_service_offers(self) -> List[ServiceOffer]:
+        data = self._read_initialized()
+        return [ServiceOffer.from_dict(row) for row in data["ServiceOffers"]]
+
+    def update_service_offer_fields(self, offer_id: str, fields: Dict[str, object]) -> ServiceOffer:
+        offer = self.get_service_offer(offer_id)
+        for key, value in fields.items():
+            if key not in ServiceOffer.__dataclass_fields__:
+                raise KeyError(f"Unknown service offer field: {key}")
+            setattr(offer, key, value)
+        self.upsert_service_offer(offer)
+        return offer
 
     def list_fund_wiki(self) -> List[FundWikiEntry]:
         data = self._read_initialized()

@@ -225,6 +225,26 @@ Generate a human-reviewed B2B draft:
 PYTHONPATH=src python3 -m balance_fundraising.cli b2b-draft <lead_id>
 ```
 
+Show paid service offers:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli offers
+```
+
+Add a paid service offer:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli offer-add --name "Корпоративная лекция" --type corporate_lecture --audience "HR-команды" --format "Онлайн"
+```
+
+Show, approve, or annotate an offer:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli offer-show <offer_id>
+PYTHONPATH=src python3 -m balance_fundraising.cli offer-status <offer_id> approved
+PYTHONPATH=src python3 -m balance_fundraising.cli offer-note <offer_id> "Проверено вручную"
+```
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -273,6 +293,7 @@ The first web UI is local-only. It shows:
 - dashboard with urgent actions and missing deadlines;
 - `Радар` for curated Yandex Search discovery;
 - `B2B` for company search, fit review, risk checks, and first-contact drafts;
+- `Услуги` for paid service offers, materials, gaps, owner, and review state;
 - `Контакты и направления` for future B2B, paid services, events, bloggers, and donor campaign records;
 - opportunity list;
 - application list;
@@ -300,6 +321,17 @@ It does not send applications, emails, reports, or partner messages.
 7. Do not send the text until a human checks the company, facts, tone, and FundWiki references.
 
 CLI equivalents are `b2b-radar`, `b2b-analyze`, and `b2b-draft`. B2B v1 does not store private employee data and does not send emails, forms, Telegram messages, or CRM tasks.
+
+### Услуги: как подготовить платное предложение фонда
+
+1. Open "Услуги".
+2. Add a service such as a corporate lecture, wellbeing workshop, psychologist internship, or educational product.
+3. Fill audience, format, value proposition, requirements, materials, and source snippets.
+4. Keep prices, promises, and result guarantees as `[НУЖНО УТОЧНИТЬ]` unless the team has explicitly approved them.
+5. Mark the offer `approved` only after a human checks the wording and materials.
+6. Open a B2B lead: approved offers can appear in the first-contact draft and one-pager.
+
+CLI equivalents are `offers`, `offer-add`, `offer-show`, `offer-status`, and `offer-note`. The service does not sell, invoice, send emails, create CRM tasks, or publish landing pages.
 
 ### Контакты и направления
 
@@ -531,6 +563,7 @@ The production plan uses Google Sheets with these tabs:
 - `Opportunities`
 - `Applications`
 - `Leads`
+- `ServiceOffers`
 - `FundWiki`
 - `Documents`
 - `ActivityLog`

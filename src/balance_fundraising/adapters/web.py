@@ -20,6 +20,8 @@ from balance_fundraising.adapters.web_templates import (
     render_not_found,
     render_opportunity_detail_page,
     render_opportunity_list_page,
+    render_service_offer_detail_page,
+    render_service_offer_list_page,
     render_radar_page,
     render_review_queue_page,
 )
@@ -43,6 +45,15 @@ from balance_fundraising.services.discovery import DiscoveryService, sanitize_di
 from balance_fundraising.services.draft import build_application_draft
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key
 from balance_fundraising.services.leads import create_lead, update_lead_note, update_lead_owner, update_lead_status
+from balance_fundraising.services.offers import (
+    approved_service_offers,
+    build_offer_description,
+    create_service_offer,
+    update_service_offer_details,
+    update_service_offer_note,
+    update_service_offer_owner,
+    update_service_offer_status,
+)
 from balance_fundraising.services.readiness import build_readiness
 
 
@@ -70,6 +81,13 @@ class WebApp:
             if "/" in lead_id or not lead_id:
                 return 404, render_not_found()
             return 200, render_b2b_detail(self.store, lead_id)
+        if route == "/offers":
+            return 200, render_offers(self.store)
+        if route.startswith("/offers/"):
+            offer_id = unquote(route.removeprefix("/offers/")).strip("/")
+            if "/" in offer_id or not offer_id:
+                return 404, render_not_found()
+            return 200, render_offer_detail(self.store, offer_id)
         if route == "/leads":
             return 200, render_leads(self.store)
         if route.startswith("/leads/"):
@@ -124,6 +142,35 @@ class WebApp:
             else:
                 return 404, render_not_found()
             return 303, f"/b2b/{lead_id}"
+        if route == "/offers":
+            offer = create_service_offer(
+                self.store,
+                name=form.get("name", ""),
+                offer_type=form.get("offer_type", "educational_product"),
+                audience=form.get("audience", ""),
+                format=form.get("format", ""),
+                value_proposition=form.get("value_proposition", ""),
+            )
+            return 303, f"/offers/{offer.id}"
+        offer_action = _parse_offer_action(route)
+        if offer_action is not None:
+            offer_id, action_name = offer_action
+            if action_name == "detail":
+                update_service_offer_from_form(self.store, offer_id, form)
+            elif action_name == "status":
+                update_service_offer_status(
+                    self.store,
+                    offer_id,
+                    status=form.get("status", "needs_review"),
+                    review_state=form.get("review_state", "needs_review"),
+                )
+            elif action_name == "owner":
+                update_service_offer_owner(self.store, offer_id, form.get("owner", ""))
+            elif action_name == "note":
+                update_service_offer_note(self.store, offer_id, form.get("notes", ""))
+            else:
+                return 404, render_not_found()
+            return 303, f"/offers/{offer_id}"
         if route == "/leads":
             lead = create_lead(
                 self.store,
@@ -384,6 +431,10 @@ def render_leads(store) -> str:
     return render_lead_list_page(store.list_leads())
 
 
+def render_offers(store) -> str:
+    return render_service_offer_list_page(store.list_service_offers())
+
+
 def render_lead_detail(store, lead_id: str) -> str:
     try:
         lead = store.get_lead(lead_id)
@@ -399,7 +450,40 @@ def render_b2b_detail(store, lead_id: str) -> str:
     except KeyError:
         return render_not_found()
     activity = [item for item in store.list_activity() if item.entity_id == lead.id]
-    return render_b2b_detail_page(lead, draft=build_b2b_draft(lead, store.list_fund_wiki()), activity=activity)
+    approved_offers = approved_service_offers(store.list_service_offers())
+    return render_b2b_detail_page(
+        lead,
+        draft=build_b2b_draft(lead, store.list_fund_wiki(), approved_offers),
+        activity=activity,
+        service_offers=approved_offers,
+    )
+
+
+def render_offer_detail(store, offer_id: str) -> str:
+    try:
+        offer = store.get_service_offer(offer_id)
+    except KeyError:
+        return render_not_found()
+    activity = [item for item in store.list_activity() if item.entity_id == offer.id]
+    return render_service_offer_detail_page(
+        offer=offer,
+        draft=build_offer_description(offer, store.list_fund_wiki()),
+        activity=activity,
+    )
+
+
+def update_service_offer_from_form(store, offer_id: str, form: Dict[str, str]):
+    return update_service_offer_details(
+        store,
+        offer_id,
+        audience=form.get("audience", ""),
+        format=form.get("format", ""),
+        value_proposition=form.get("value_proposition", ""),
+        requirements=_lines(form.get("requirements", "")),
+        materials_needed=_lines(form.get("materials_needed", "")),
+        source_snippets=_lines(form.get("source_snippets", "")),
+        missing_info=_lines(form.get("missing_info", "")),
+    )
 
 
 def render_application_detail(store, application_id: str) -> str:
@@ -488,6 +572,19 @@ def _parse_lead_action(route: str) -> Optional[tuple[str, str]]:
     return unquote(lead_id), action
 
 
+def _parse_offer_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/offers/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) == 2:
+        _, offer_id = parts
+        return unquote(offer_id), "detail"
+    if len(parts) != 3:
+        return None
+    _, offer_id, action = parts
+    return unquote(offer_id), action
+
+
 def _parse_b2b_action(route: str) -> Optional[tuple[str, str]]:
     if not route.startswith("/b2b/"):
         return None
@@ -516,6 +613,10 @@ def _parse_feedback_action(route: str) -> Optional[tuple[str, str]]:
         return None
     _, activity_id, action = parts
     return unquote(activity_id), action
+
+
+def _lines(value: str) -> List[str]:
+    return [line.strip() for line in value.splitlines() if line.strip()]
 
 
 def make_handler(app: WebApp):
