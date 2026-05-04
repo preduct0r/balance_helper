@@ -8,7 +8,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
-from balance_fundraising.adapters.web import WebApp, add_opportunity, analyze_opportunity, render_dashboard, render_opportunity_detail
+from balance_fundraising.adapters.web import (
+    WebApp,
+    add_opportunity,
+    analyze_opportunity,
+    render_dashboard,
+    render_opportunity_detail,
+    render_review_queue,
+)
 from balance_fundraising.domain import Opportunity
 
 
@@ -27,9 +34,11 @@ class WebUiTests(unittest.TestCase):
             store.upsert_opportunity(missing)
             html = render_dashboard(store)
         self.assertIn("Сегодня важно", html)
+        self.assertIn("Нужно проверить", html)
+        self.assertIn("Черновики с пробелами", html)
         self.assertIn("Старый дедлайн", html)
         self.assertIn("Без дедлайна", html)
-        self.assertIn("Дедлайн нужно уточнить", html)
+        self.assertIn("Дедлайн неизвестен", html)
 
     def test_opportunity_detail_renderer_includes_review_materials(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -41,13 +50,37 @@ class WebUiTests(unittest.TestCase):
             opportunity.required_documents = ["Устав фонда"]
             opportunity.missing_info = ["Проверить дедлайн"]
             opportunity.source_snippets = ["Нужны устав и отчетность"]
+            opportunity.review_state = "needs_clarification"
             store.upsert_opportunity(opportunity)
             html = render_opportunity_detail(store, opportunity.id)
         self.assertIn("Чек-лист", html)
         self.assertIn("Черновик", html)
+        self.assertIn("Работа с записью", html)
+        self.assertIn("Что нужно подать", html)
+        self.assertIn("Что неизвестно", html)
+        self.assertIn("Подтверждения", html)
+        self.assertIn("Черновик и факты ниже нельзя отправлять вовне", html)
         self.assertIn("Проверить дедлайн", html)
         self.assertIn("Нужны устав и отчетность", html)
         self.assertIn("[НУЖНО УТОЧНИТЬ]", html)
+
+    def test_review_queue_shows_unreviewed_items(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            pending = Opportunity.from_url("https://pending.example")
+            pending.name = "Нужно проверить"
+            pending.review_state = "needs_review"
+            reviewed = Opportunity.from_url("https://reviewed.example")
+            reviewed.name = "Уже проверено"
+            reviewed.status = "accepted"
+            reviewed.review_state = "reviewed"
+            store.upsert_opportunity(pending)
+            store.upsert_opportunity(reviewed)
+            html = render_review_queue(store)
+        self.assertIn("Очередь проверки", html)
+        self.assertIn("Нужно проверить", html)
+        self.assertNotIn("Уже проверено", html)
 
     def test_add_link_handler_creates_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -64,6 +97,9 @@ class WebUiTests(unittest.TestCase):
             store = LocalJsonStore(Path(tmp) / "store.json")
             store.init_store()
             opportunity = add_opportunity(store, "https://example.org/new")
+            opportunity.notes = "Не потерять"
+            opportunity.checklist_done = ["Старый пункт"]
+            store.upsert_opportunity(opportunity)
             app = WebApp(store)
             status, location = app.post(
                 f"/opportunities/{opportunity.id}/analyze",
@@ -73,7 +109,30 @@ class WebUiTests(unittest.TestCase):
         self.assertEqual(status, 303)
         self.assertEqual(location, f"/opportunities/{opportunity.id}")
         self.assertEqual(updated.status, "needs_review")
+        self.assertEqual(updated.review_state, "needs_review")
+        self.assertEqual(updated.notes, "Не потерять")
+        self.assertIn("Старый пункт", updated.checklist_done)
         self.assertIn("Устав фонда", updated.required_documents)
+
+    def test_operator_actions_update_status_owner_note_and_checklist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = add_opportunity(store, "https://example.org/new")
+            app = WebApp(store)
+            app.post(
+                f"/opportunities/{opportunity.id}/status",
+                {"status": "not_started", "review_state": "needs_clarification"},
+            )
+            app.post(f"/opportunities/{opportunity.id}/owner", {"owner": "Анна"})
+            app.post(f"/opportunities/{opportunity.id}/note", {"notes": "Позвонить партнёру"})
+            app.post(f"/opportunities/{opportunity.id}/checklist", {"item": "Устав фонда"})
+            updated = store.get_opportunity(opportunity.id)
+        self.assertEqual(updated.status, "not_started")
+        self.assertEqual(updated.review_state, "needs_clarification")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertEqual(updated.notes, "Позвонить партнёру")
+        self.assertIn("Устав фонда", updated.checklist_done)
 
     def test_render_route_flow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -81,6 +140,7 @@ class WebUiTests(unittest.TestCase):
             store.init_store()
             app = WebApp(store)
             self.assertEqual(app.render("/")[0], 200)
+            self.assertEqual(app.render("/review")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -93,4 +153,3 @@ class WebUiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

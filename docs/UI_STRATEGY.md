@@ -8,7 +8,7 @@ The user should not need to understand APIs, JSON, model prompts, search endpoin
 
 ## Product Shape
 
-The long-term UI should become a quiet operational workspace for fundraising:
+The long-term UI should become a polished operational workspace for fundraising:
 
 - one clear daily dashboard;
 - opportunity cards with deadlines and next actions;
@@ -17,7 +17,7 @@ The long-term UI should become a quiet operational workspace for fundraising:
 - partner/application pipeline;
 - human approval controls for every external text or status change.
 
-The UI should prioritize repeated work and low cognitive load over visual spectacle.
+The UI should prioritize repeated work, low cognitive load, and clear decisions over visual spectacle. "Simple" is not the goal by itself; the goal is comfort, confidence, and fewer missed steps for a non-IT operator.
 
 ## Non-IT Design Principles
 
@@ -91,7 +91,7 @@ Add a simple local web dashboard that reads from the same store and shows opport
 
 ### UI Phase 2: Review And Edit
 
-Allow the user to approve extracted facts, edit drafts, assign owners, update statuses, and mark checklist items done.
+Allow the user to review extracted facts, assign owners, update statuses, save notes, and mark checklist items done. Human-review boundaries remain visible: the UI can help prepare drafts and checklists, but it must not send applications or external messages.
 
 ### UI Phase 3: Guided Workflows
 

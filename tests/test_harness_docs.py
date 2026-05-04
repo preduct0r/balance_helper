@@ -79,6 +79,8 @@ class HarnessDocsTests(unittest.TestCase):
             "Opportunity Detail",
             "Review Queue",
             "Local Web Dashboard",
+            "Review And Edit",
+            "Human-review boundaries",
             "Multi-Agent Workspace",
         ]:
             self.assertIn(phrase, ui_strategy)
@@ -101,6 +103,7 @@ class HarnessDocsTests(unittest.TestCase):
             "Я нашла ссылку",
             "BALANCE_STORE_BACKEND",
             "Local Web UI",
+            "Web scenario for a non-IT operator",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

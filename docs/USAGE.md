@@ -172,12 +172,25 @@ The first web UI is local-only. It shows:
 
 - dashboard with urgent actions and missing deadlines;
 - opportunity list;
+- review queue;
 - opportunity detail;
 - checklist;
 - draft;
+- safe operator actions: status, review state, owner, notes, checklist done;
 - local heuristic analysis from pasted text or the source URL.
 
 It does not send applications, emails, reports, or partner messages.
+
+### Web scenario for a non-IT operator
+
+1. Open the dashboard and start with "Сегодня важно".
+2. Open "Проверка" to see new findings and drafts that need a person.
+3. Open an opportunity card.
+4. Check "Что неизвестно" and "Подтверждения".
+5. Assign an owner if the next step belongs to someone.
+6. Save a note when context would otherwise live in chat.
+7. Mark checklist items done only after checking the real source or document.
+8. Treat every draft as preparation material until a human approves it.
 
 ## 7. Operator Recipes
 

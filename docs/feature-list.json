@@ -109,5 +109,18 @@
       "scripts/dev_check.py includes a web render smoke check."
     ],
     "passes": true
+  },
+  {
+    "id": "ux-operator-workspace",
+    "priority": 1,
+    "description": "Web UI becomes a more comfortable operator workspace with review queue, safe record actions, notes, and checklist progress.",
+    "acceptance_steps": [
+      "Dashboard shows priority groups for today, review, missing deadlines, and drafts with gaps.",
+      "Review queue shows unreviewed opportunities and hides fully reviewed accepted items.",
+      "Opportunity detail separates meaning, requirements, unknowns, evidence, checklist, and draft.",
+      "POST actions update status, review state, owner, notes, and checklist_done without external sends.",
+      "docs/UI_STRATEGY.md and docs/USAGE.md describe Phase 2 review/edit behavior and human-review boundaries."
+    ],
+    "passes": true
   }
 ]

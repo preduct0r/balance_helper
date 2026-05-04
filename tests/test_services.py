@@ -47,7 +47,22 @@ class ServiceTests(unittest.TestCase):
         checklist = build_checklist(opportunity)
         self.assertIn("[НУЖНО УТОЧНИТЬ] Список документов", checklist)
 
+    def test_opportunity_from_dict_preserves_defaults_for_new_fields(self) -> None:
+        opportunity = Opportunity.from_dict({"id": "opp_1", "url": "https://example.org"})
+        self.assertEqual(opportunity.notes, "")
+        self.assertEqual(opportunity.checklist_done, [])
+        self.assertEqual(opportunity.review_state, "needs_review")
+
+    def test_opportunity_from_dict_coerces_new_list_fields(self) -> None:
+        opportunity = Opportunity.from_dict(
+            {
+                "id": "opp_1",
+                "url": "https://example.org",
+                "checklist_done": "Устав фонда\nОтчетность фонда",
+            }
+        )
+        self.assertEqual(opportunity.checklist_done, ["Устав фонда", "Отчетность фонда"])
+
 
 if __name__ == "__main__":
     unittest.main()
-

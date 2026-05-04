@@ -59,6 +59,9 @@ class OpportunityAnalysisService:
             next_action=_next_action(analysis["deadline"]),
             owner=opportunity.owner,
             last_checked=date.today().isoformat(),
+            notes=opportunity.notes,
+            checklist_done=opportunity.checklist_done,
+            review_state="needs_review",
         )
         self.store.upsert_opportunity(updated)
         self.store.add_activity(ActivityLogEntry.today(action="analyze", entity_id=updated.id, details=updated.name))
@@ -173,4 +176,3 @@ def _next_action(deadline: Optional[str]) -> str:
     if deadline < date.today().isoformat():
         return "Дедлайн прошел: проверить следующее окно подачи"
     return "Подготовить чек-лист документов"
-

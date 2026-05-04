@@ -24,13 +24,21 @@ def main() -> int:
             opportunity.id,
             source_text="Благотворительные фонды НКО могут подать заявку. Нужны устав, отчетность и рекомендации.",
         )
+        app.post(
+            f"/opportunities/{opportunity.id}/status",
+            {"status": "not_started", "review_state": "needs_clarification"},
+        )
         root_status, root_html = app.render("/")
+        review_status, review_html = app.render("/review")
         detail_status, detail_html = app.render(f"/opportunities/{opportunity.id}")
     assert root_status == 200
+    assert review_status == 200
     assert detail_status == 200
     assert "Рабочий стол фандрайзинга" in root_html
+    assert "Очередь проверки" in review_html
     assert "Чек-лист" in detail_html
     assert "Черновик" in detail_html
+    assert "Нужно уточнить" in detail_html
     print("web_render_smoke: ok")
     return 0
 

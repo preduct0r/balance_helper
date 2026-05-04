@@ -19,3 +19,5 @@
 - Added `docs/UI_STRATEGY.md` for non-IT operator UX direction and linked it from roadmap, README, AGENTS, and quality rules.
 - Added store backend selection, `doctor`, and an offline operator smoke workflow plan for the first non-IT workflow.
 - Added first local server-rendered web UI plan: dashboard, opportunity list, detail, checklist, draft, and heuristic analysis.
+- Upgraded the local web UI plan into a UX-focused operator workspace with review queue, owner/status/note actions, checklist progress, and clearer human-review boundaries.
+- Implemented and verified the UX-focused operator workspace with page templates and package-local static CSS; `ux-operator-workspace` is marked passing after `PYTHONPATH=src python3 -m unittest discover -s tests -v`, `PYTHONPATH=src python3 scripts/dev_check.py`, `PYTHONPATH=src python3 scripts/smoke_web_render.py`, and `git diff --check`.

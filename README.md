@@ -8,7 +8,7 @@ MVP agent for the charity fund "Равновесие". The system helps a fundra
 - Searches Russian-language NKO opportunities through Yandex Search API.
 - Fetches pages and documents, extracts readable text, and asks Yandex LLM for structured JSON.
 - Generates checklists and draft application text from the approved `FundWiki` only.
-- Provides CLI commands and Telegram command handlers for daily work.
+- Provides CLI commands, Telegram command handlers, and a local web workspace for daily work.
 
 ## System Roadmap
 
@@ -90,7 +90,7 @@ Run:
 PYTHONPATH=src python -m balance_fundraising.cli web
 ```
 
-Open `http://127.0.0.1:8080`. The first web UI is local-only and shows the same operator workflow as CLI: dashboard, opportunity list, opportunity detail, checklist, draft, and local heuristic analysis.
+Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, review queue, opportunity list, opportunity detail, checklist, draft, and local heuristic analysis. In the opportunity card, an operator can update status, review state, owner, notes, and checklist progress without sending anything outside the service.
 
 ## Human Review Boundary
 

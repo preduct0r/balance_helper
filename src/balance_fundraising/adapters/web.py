@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
+from balance_fundraising.adapters.web_templates import (
+    render_dashboard_page,
+    render_message,
+    render_not_found,
+    render_opportunity_detail_page,
+    render_opportunity_list_page,
+    render_review_queue_page,
+)
 from balance_fundraising.domain import ActivityLogEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.draft import build_application_draft
-
-STATUS_LABELS = {
-    "needs_review": "Нужна проверка",
-    "discovered": "Новая находка",
-    "not_started": "Не начато",
-    "accepted": "Принято",
-    "rejected": "Отклонено",
-}
 
 
 class WebApp:
@@ -31,6 +30,8 @@ class WebApp:
             return 200, render_dashboard(self.store)
         if route == "/opportunities":
             return 200, render_opportunities(self.store.list_opportunities())
+        if route == "/review":
+            return 200, render_review_queue(self.store)
         if route.startswith("/opportunities/"):
             opportunity_id = unquote(route.removeprefix("/opportunities/")).strip("/")
             if "/" in opportunity_id or not opportunity_id:
@@ -47,12 +48,24 @@ class WebApp:
                 return 400, render_message("Нужна ссылка", "Вставьте ссылку на страницу возможности.")
             opportunity = add_opportunity(self.store, url)
             return 303, f"/opportunities/{opportunity.id}"
-        if route.startswith("/opportunities/") and route.endswith("/analyze"):
-            opportunity_id = unquote(route.removeprefix("/opportunities/").removesuffix("/analyze")).strip("/")
+        action = _parse_opportunity_action(route)
+        if action is None:
+            return 404, render_not_found()
+        opportunity_id, action_name = action
+        if action_name == "analyze":
             source_text = form.get("source_text", "").strip() or None
             analyze_opportunity(self.store, opportunity_id, source_text=source_text)
-            return 303, f"/opportunities/{opportunity_id}"
-        return 404, render_not_found()
+        elif action_name == "status":
+            update_status(self.store, opportunity_id, status=form.get("status", ""), review_state=form.get("review_state", ""))
+        elif action_name == "note":
+            update_note(self.store, opportunity_id, form.get("notes", ""))
+        elif action_name == "owner":
+            update_owner(self.store, opportunity_id, form.get("owner", ""))
+        elif action_name == "checklist":
+            mark_checklist_done(self.store, opportunity_id, form.get("item", ""))
+        else:
+            return 404, render_not_found()
+        return 303, f"/opportunities/{opportunity_id}"
 
 
 def add_opportunity(store, url: str) -> Opportunity:
@@ -63,40 +76,65 @@ def add_opportunity(store, url: str) -> Opportunity:
 
 
 def analyze_opportunity(store, opportunity_id: str, *, source_text: Optional[str] = None) -> Opportunity:
-    return OpportunityAnalysisService(store).analyze_opportunity(opportunity_id, text=source_text, use_llm=False)
+    opportunity = OpportunityAnalysisService(store).analyze_opportunity(opportunity_id, text=source_text, use_llm=False)
+    opportunity.review_state = "needs_review"
+    store.upsert_opportunity(opportunity)
+    return opportunity
+
+
+def update_status(store, opportunity_id: str, *, status: str, review_state: str) -> Opportunity:
+    fields = {}
+    if status:
+        fields["status"] = status
+    if review_state:
+        fields["review_state"] = review_state
+    opportunity = store.update_opportunity_fields(opportunity_id, fields)
+    store.add_activity(ActivityLogEntry.today(action="status", entity_id=opportunity.id, details=f"{status} / {review_state}"))
+    return opportunity
+
+
+def update_note(store, opportunity_id: str, notes: str) -> Opportunity:
+    opportunity = store.update_opportunity_fields(opportunity_id, {"notes": notes.strip()})
+    store.add_activity(ActivityLogEntry.today(action="note", entity_id=opportunity.id, details="updated"))
+    return opportunity
+
+
+def update_owner(store, opportunity_id: str, owner: str) -> Opportunity:
+    opportunity = store.update_opportunity_fields(opportunity_id, {"owner": owner.strip()})
+    store.add_activity(ActivityLogEntry.today(action="owner", entity_id=opportunity.id, details=opportunity.owner))
+    return opportunity
+
+
+def mark_checklist_done(store, opportunity_id: str, item: str) -> Opportunity:
+    opportunity = store.get_opportunity(opportunity_id)
+    value = item.strip()
+    if value and value not in opportunity.checklist_done:
+        opportunity.checklist_done.append(value)
+        store.upsert_opportunity(opportunity)
+        store.add_activity(ActivityLogEntry.today(action="checklist_done", entity_id=opportunity.id, details=value))
+    return opportunity
 
 
 def render_dashboard(store) -> str:
     opportunities = store.list_opportunities()
     missing_deadlines = [item for item in opportunities if not item.deadline]
-    new_items = [item for item in opportunities if item.status in {"needs_review", "discovered"}]
-    body = [
-        "<section>",
-        "<h2>Сегодня важно</h2>",
-        f"<pre>{escape(build_digest(opportunities))}</pre>",
-        "</section>",
-        "<section>",
-        "<h2>Новые находки</h2>",
-        render_opportunity_table(new_items, empty_text="Новых находок нет."),
-        "</section>",
-        "<section>",
-        "<h2>Дедлайн нужно уточнить</h2>",
-        render_opportunity_table(missing_deadlines, empty_text="Все дедлайны заполнены."),
-        "</section>",
-        render_add_link_form(),
-    ]
-    return render_layout("Рабочий стол фандрайзинга", "\n".join(body))
+    needs_review = review_queue_items(opportunities)
+    drafts_with_gaps = [item for item in opportunities if item.missing_info or not item.deadline]
+    return render_dashboard_page(
+        needs_review=needs_review,
+        missing_deadlines=missing_deadlines,
+        drafts_with_gaps=drafts_with_gaps,
+        digest_text=build_digest(opportunities),
+    )
 
 
 def render_opportunities(opportunities: Iterable[Opportunity]) -> str:
-    body = [
-        "<section>",
-        "<h2>Все возможности</h2>",
-        render_opportunity_table(opportunities, empty_text="Пока нет возможностей."),
-        "</section>",
-        render_add_link_form(),
-    ]
-    return render_layout("Возможности", "\n".join(body))
+    return render_opportunity_list_page(opportunities)
+
+
+def render_review_queue(store) -> str:
+    opportunities = review_queue_items(store.list_opportunities())
+    return render_review_queue_page(opportunities)
 
 
 def render_opportunity_detail(store, opportunity_id: str) -> str:
@@ -106,162 +144,33 @@ def render_opportunity_detail(store, opportunity_id: str) -> str:
         return render_not_found()
     checklist = build_checklist(opportunity)
     draft = build_application_draft(opportunity, store.list_fund_wiki())
-    body = [
-        "<section>",
-        f"<h2>{escape(opportunity.name)}</h2>",
-        f"<p class=\"muted\">{escape(status_label(opportunity.status))}</p>",
-        fact_row_html("Источник", link(opportunity.url)),
-        fact_row("Дедлайн", opportunity.deadline or "[НУЖНО УТОЧНИТЬ]"),
-        fact_row("Тип", opportunity.type),
-        fact_row("Следующее действие", opportunity.next_action),
-        fact_row("Уверенность", f"{opportunity.confidence:.2f}"),
-        "</section>",
-        "<section>",
-        "<h2>Требования</h2>",
-        render_list(opportunity.eligibility, empty_text="[НУЖНО УТОЧНИТЬ] Требования к участию"),
-        "</section>",
-        "<section>",
-        "<h2>Документы</h2>",
-        render_list(opportunity.required_documents, empty_text="[НУЖНО УТОЧНИТЬ] Список документов"),
-        "</section>",
-        "<section>",
-        "<h2>Что нужно уточнить</h2>",
-        render_list(opportunity.missing_info, empty_text="Нет отмеченных пробелов."),
-        "</section>",
-        "<section>",
-        "<h2>Подтверждения из источника</h2>",
-        render_list(opportunity.source_snippets, empty_text="Пока нет фрагментов источника."),
-        "</section>",
-        render_analyze_form(opportunity.id),
-        "<section>",
-        "<h2>Чек-лист</h2>",
-        f"<pre>{escape(checklist)}</pre>",
-        "</section>",
-        "<section>",
-        "<h2>Черновик</h2>",
-        f"<pre>{escape(draft)}</pre>",
-        "</section>",
+    checklist_items = opportunity.required_documents + opportunity.missing_info
+    if not opportunity.deadline:
+        checklist_items.append("Уточнить дедлайн")
+    return render_opportunity_detail_page(
+        opportunity=opportunity,
+        checklist=checklist,
+        draft=draft,
+        checklist_items=checklist_items,
+    )
+
+
+def review_queue_items(opportunities: Iterable[Opportunity]) -> List[Opportunity]:
+    return [
+        item
+        for item in opportunities
+        if item.review_state != "reviewed" or item.status in {"needs_review", "discovered"} or bool(item.missing_info)
     ]
-    return render_layout("Карточка возможности", "\n".join(body))
 
 
-def render_opportunity_table(opportunities: Iterable[Opportunity], *, empty_text: str) -> str:
-    rows = list(opportunities)
-    if not rows:
-        return f"<p class=\"muted\">{escape(empty_text)}</p>"
-    body_rows = []
-    for opportunity in rows:
-        body_rows.append(
-            "<tr>"
-            f"<td><a href=\"/opportunities/{escape(opportunity.id)}\">{escape(opportunity.name)}</a></td>"
-            f"<td>{escape(status_label(opportunity.status))}</td>"
-            f"<td>{escape(opportunity.deadline or '[НУЖНО УТОЧНИТЬ]')}</td>"
-            f"<td>{escape(opportunity.type)}</td>"
-            f"<td>{escape(opportunity.next_action)}</td>"
-            "</tr>"
-        )
-    return (
-        "<table>"
-        "<thead><tr><th>Название</th><th>Статус</th><th>Дедлайн</th><th>Тип</th><th>Следующее действие</th></tr></thead>"
-        f"<tbody>{''.join(body_rows)}</tbody>"
-        "</table>"
-    )
-
-
-def render_add_link_form() -> str:
-    return (
-        "<section>"
-        "<h2>Добавить ссылку</h2>"
-        "<form method=\"post\" action=\"/opportunities\">"
-        "<label>Ссылка на возможность <input name=\"url\" type=\"url\" required placeholder=\"https://example.org\"></label>"
-        "<button type=\"submit\">Добавить</button>"
-        "</form>"
-        "</section>"
-    )
-
-
-def render_analyze_form(opportunity_id: str) -> str:
-    return (
-        "<section>"
-        "<h2>Разобрать страницу</h2>"
-        f"<form method=\"post\" action=\"/opportunities/{escape(opportunity_id)}/analyze\">"
-        "<label>Текст источника, если страницу нельзя открыть автоматически"
-        "<textarea name=\"source_text\" rows=\"7\" placeholder=\"Можно оставить пустым, тогда сервис попробует открыть ссылку\"></textarea>"
-        "</label>"
-        "<button type=\"submit\">Разобрать</button>"
-        "</form>"
-        "</section>"
-    )
-
-
-def render_list(items: Iterable[str], *, empty_text: str) -> str:
-    values = [item for item in items if item]
-    if not values:
-        return f"<p class=\"needs-info\">{escape(empty_text)}</p>"
-    return "<ul>" + "".join(f"<li>{escape(item)}</li>" for item in values) + "</ul>"
-
-
-def render_message(title: str, message: str) -> str:
-    return render_layout(title, f"<section><h2>{escape(title)}</h2><p>{escape(message)}</p></section>")
-
-
-def render_not_found() -> str:
-    return render_message("Не найдено", "Такой страницы или записи нет.")
-
-
-def render_layout(title: str, body: str) -> str:
-    return f"""<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{escape(title)}</title>
-  <style>
-    :root {{ color-scheme: light; font-family: Arial, sans-serif; }}
-    body {{ margin: 0; background: #f5f7f8; color: #172026; }}
-    header {{ background: #ffffff; border-bottom: 1px solid #d9e1e5; padding: 18px 28px; }}
-    main {{ max-width: 1120px; margin: 0 auto; padding: 24px; }}
-    nav a {{ margin-right: 16px; color: #185a7d; text-decoration: none; font-weight: 600; }}
-    section {{ background: #ffffff; border: 1px solid #d9e1e5; border-radius: 8px; margin-bottom: 18px; padding: 18px; }}
-    h1 {{ margin: 0 0 10px; font-size: 28px; }}
-    h2 {{ margin-top: 0; font-size: 20px; }}
-    table {{ width: 100%; border-collapse: collapse; }}
-    th, td {{ border-bottom: 1px solid #e8eef1; padding: 10px; text-align: left; vertical-align: top; }}
-    th {{ background: #f0f4f6; }}
-    input, textarea {{ width: 100%; box-sizing: border-box; margin-top: 6px; padding: 10px; border: 1px solid #bcc9cf; border-radius: 6px; font: inherit; }}
-    button {{ margin-top: 10px; padding: 10px 14px; border: 0; border-radius: 6px; background: #185a7d; color: #ffffff; font-weight: 700; cursor: pointer; }}
-    pre {{ white-space: pre-wrap; overflow-wrap: anywhere; background: #f8fafb; border: 1px solid #e0e7eb; border-radius: 6px; padding: 12px; }}
-    .muted {{ color: #5f6f78; }}
-    .needs-info {{ color: #8a4b00; font-weight: 700; }}
-    .fact {{ display: grid; grid-template-columns: 180px 1fr; gap: 10px; margin: 8px 0; }}
-    .fact strong {{ color: #3c4a51; }}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>{escape(title)}</h1>
-    <nav><a href="/">Рабочий стол</a><a href="/opportunities">Возможности</a></nav>
-  </header>
-  <main>{body}</main>
-</body>
-</html>"""
-
-
-def fact_row(label: str, value: str) -> str:
-    return f"<div class=\"fact\"><strong>{escape(label)}</strong><span>{escape(value)}</span></div>"
-
-
-def fact_row_html(label: str, value: str) -> str:
-    return f"<div class=\"fact\"><strong>{escape(label)}</strong><span>{value}</span></div>"
-
-
-def link(url: str) -> str:
-    safe_url = escape(url, quote=True)
-    return f"<a href=\"{safe_url}\" target=\"_blank\" rel=\"noreferrer\">{escape(url)}</a>"
-
-
-def status_label(status: str) -> str:
-    return STATUS_LABELS.get(status, status)
+def _parse_opportunity_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/opportunities/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) != 3:
+        return None
+    _, opportunity_id, action = parts
+    return unquote(opportunity_id), action
 
 
 def make_handler(app: WebApp):

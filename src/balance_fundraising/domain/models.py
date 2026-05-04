@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import asdict, dataclass, field
+from dataclasses import MISSING, asdict, dataclass, field
 from datetime import date
 from typing import Any, Dict, List, Optional
 
@@ -32,6 +32,9 @@ class Opportunity:
     next_action: str = "Проверить человеком"
     owner: str = ""
     last_checked: Optional[str] = None
+    notes: str = ""
+    checklist_done: List[str] = field(default_factory=list)
+    review_state: str = "needs_review"
 
     @classmethod
     def from_url(cls, url: str) -> "Opportunity":
@@ -42,10 +45,47 @@ class Opportunity:
         values = dict(data)
         if "source_url" in values and "url" not in values:
             values["url"] = values.pop("source_url")
-        return cls(**{field_name: values.get(field_name) for field_name in cls.__dataclass_fields__})
+        payload: Dict[str, Any] = {}
+        list_fields = {
+            "eligibility",
+            "required_documents",
+            "reporting_requirements",
+            "missing_info",
+            "source_snippets",
+            "checklist_done",
+        }
+        for field_name, field_info in cls.__dataclass_fields__.items():
+            if field_name not in values:
+                continue
+            value = values[field_name]
+            if field_name in list_fields:
+                value = _coerce_list(value)
+            elif field_name == "confidence":
+                value = _coerce_float(value)
+            if value is None and field_info.default is not MISSING:
+                continue
+            payload[field_name] = value
+        return cls(**payload)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+
+def _coerce_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    if isinstance(value, str):
+        return [part.strip() for part in value.splitlines() if part.strip()]
+    return [str(value)]
+
+
+def _coerce_float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 @dataclass
@@ -97,4 +137,3 @@ class ActivityLogEntry:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
-

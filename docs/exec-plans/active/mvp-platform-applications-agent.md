@@ -24,6 +24,7 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - [x] Add operator recipes for non-IT usage.
 - [x] Tie the first future UI slice to the same operator workflow.
 - [x] Add first local web UI for the operator workflow.
+- [x] Add UX-focused review/edit workspace on top of the local web UI.
 
 ## Done Means
 
