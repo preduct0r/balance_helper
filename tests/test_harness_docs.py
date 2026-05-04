@@ -21,6 +21,7 @@ class HarnessDocsTests(unittest.TestCase):
             "ARCHITECTURE.md",
             "docs/TESTING.md",
             "docs/QUALITY.md",
+            "docs/ROADMAP.md",
             "docs/exec-plans/active/mvp-platform-applications-agent.md",
             "docs/agent-progress.md",
             "docs/feature-list.json",
@@ -35,7 +36,23 @@ class HarnessDocsTests(unittest.TestCase):
             self.assertIn("acceptance_steps", item)
             self.assertIn("passes", item)
 
+    def test_roadmap_captures_future_agent_system(self) -> None:
+        roadmap = (ROOT / "docs/ROADMAP.md").read_text(encoding="utf-8")
+        for phrase in [
+            "Product North Star",
+            "MVP: Platforms And Applications",
+            "B2B Agent",
+            "Private Donor Agent",
+            "Blogger And Ambassador Agent",
+            "Events And Merch Agent",
+            "Paid Services Agent",
+        ]:
+            self.assertIn(phrase, roadmap)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        domain = (ROOT / "docs/FUNDRAISING_DOMAIN.md").read_text(encoding="utf-8")
+        self.assertIn("docs/ROADMAP.md", readme)
+        self.assertIn("docs/ROADMAP.md", domain)
+
 
 if __name__ == "__main__":
     unittest.main()
-

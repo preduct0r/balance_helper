@@ -51,5 +51,16 @@
       "Status updates go through the store and activity log."
     ],
     "passes": true
+  },
+  {
+    "id": "system-roadmap",
+    "priority": 1,
+    "description": "Harness includes the original fundraising-system intent and a staged roadmap for future agents beyond the MVP.",
+    "acceptance_steps": [
+      "docs/ROADMAP.md captures the original task, product north star, MVP, and future agent phases.",
+      "AGENTS.md and README.md point future agents to docs/ROADMAP.md.",
+      "Domain docs refer to the roadmap instead of duplicating all future scope."
+    ],
+    "passes": true
   }
 ]

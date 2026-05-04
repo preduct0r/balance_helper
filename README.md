@@ -10,6 +10,10 @@ MVP agent for the charity fund "Равновесие". The system helps a fundra
 - Generates checklists and draft application text from the approved `FundWiki` only.
 - Provides CLI commands and Telegram command handlers for daily work.
 
+## System Roadmap
+
+The MVP is the first slice of a broader fundraising operating system for the fund. The full roadmap is kept in `docs/ROADMAP.md`; it covers the opportunity radar, fund passport, application/reporting agent, B2B agent, private donor agent, blogger agent, events and merch, and paid services.
+
 ## Quick Start
 
 ```bash
@@ -69,5 +73,4 @@ All opportunities are created as reviewable records. Drafts may contain `[НУЖ
 
 ## Development Harness
 
-Read `AGENTS.md` before coding. Use `docs/feature-list.json` for acceptance criteria and `docs/agent-progress.md` for continuity between sessions.
-
+Read `AGENTS.md` before coding. Use `docs/ROADMAP.md` for long-term direction, `docs/feature-list.json` for acceptance criteria, and `docs/agent-progress.md` for continuity between sessions.

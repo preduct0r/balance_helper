@@ -1,5 +1,7 @@
 # Fundraising Domain Map
 
+See `docs/ROADMAP.md` for the staged product roadmap. This document captures the domain areas and safety constraints that all roadmap items share.
+
 ## Current MVP
 
 The first agent covers platforms and applications. It tracks opportunities, requirements, deadlines, checklists, drafts, and application status.
@@ -21,4 +23,3 @@ The first agent covers platforms and applications. It tracks opportunities, requ
 - No pressure on beneficiaries.
 - No personal beneficiary data in LLM prompts.
 - Human approval before all external communication.
-

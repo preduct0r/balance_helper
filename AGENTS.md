@@ -1,6 +1,6 @@
 # Agent Guide
 
-This repository is built to be safe for long-running coding agents. Read this file first, then read `docs/agent-progress.md`, `docs/feature-list.json`, and the active exec plan before making changes.
+This repository is built to be safe for long-running coding agents. Read this file first, then read the roadmap, `docs/agent-progress.md`, `docs/feature-list.json`, and the active exec plan before making changes.
 
 ## Required Context
 
@@ -8,6 +8,7 @@ This repository is built to be safe for long-running coding agents. Read this fi
 - Testing: `docs/TESTING.md`
 - Quality rules: `docs/QUALITY.md`
 - Domain map: `docs/FUNDRAISING_DOMAIN.md`
+- System roadmap: `docs/ROADMAP.md`
 - Active plan: `docs/exec-plans/active/mvp-platform-applications-agent.md`
 - Progress log: `docs/agent-progress.md`
 - Feature list: `docs/feature-list.json`
@@ -52,4 +53,3 @@ This repository is built to be safe for long-running coding agents. Read this fi
 - External clients must be mockable; tests must not call real Yandex, Google, or Telegram services.
 - Prefer the local JSON store for tests and development.
 - Keep changes small enough that every changed line traces to the user's request.
-
