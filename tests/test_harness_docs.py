@@ -42,6 +42,11 @@ class HarnessDocsTests(unittest.TestCase):
             "offer-show",
             "offer-status",
             "offer-note",
+            "event-radar",
+            "events",
+            "event-add",
+            "event-show",
+            "event-checklist",
         ]:
             self.assertIn(command, readme)
         for env in [
@@ -161,6 +166,11 @@ class HarnessDocsTests(unittest.TestCase):
             "offer-add",
             "offer-status",
             "offer-note",
+            "Мероприятия",
+            "event-radar",
+            "event-add",
+            "event-checklist",
+            "без складского учета",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

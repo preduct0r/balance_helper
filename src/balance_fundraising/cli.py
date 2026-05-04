@@ -25,6 +25,7 @@ from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.doctor import doctor_has_errors, format_doctor_report, run_doctor
 from balance_fundraising.services.draft import build_application_draft
+from balance_fundraising.services.events import EventDiscoveryService, build_event_checklist, create_event_lead
 from balance_fundraising.services.leads import create_lead, lead_category_label, lead_status_label, update_lead_status
 from balance_fundraising.services.offers import (
     build_offer_description,
@@ -52,11 +53,15 @@ def main(argv: list[str] | None = None) -> int:
     b2b_radar = subparsers.add_parser("b2b-radar")
     b2b_radar.add_argument("--query")
     b2b_radar.add_argument("--limit", type=int, default=10)
+    event_radar = subparsers.add_parser("event-radar")
+    event_radar.add_argument("--query")
+    event_radar.add_argument("--limit", type=int, default=10)
     subparsers.add_parser("doctor")
     subparsers.add_parser("seed-demo")
     subparsers.add_parser("applications")
     subparsers.add_parser("leads")
     subparsers.add_parser("offers")
+    subparsers.add_parser("events")
 
     add_link = subparsers.add_parser("add-link")
     add_link.add_argument("url")
@@ -112,6 +117,17 @@ def main(argv: list[str] | None = None) -> int:
 
     b2b_draft = subparsers.add_parser("b2b-draft")
     b2b_draft.add_argument("lead_id")
+
+    event_add = subparsers.add_parser("event-add")
+    event_add.add_argument("--name", required=True)
+    event_add.add_argument("--url", default="")
+    event_add.add_argument("--description", default="")
+
+    event_show = subparsers.add_parser("event-show")
+    event_show.add_argument("lead_id")
+
+    event_checklist = subparsers.add_parser("event-checklist")
+    event_checklist.add_argument("lead_id")
 
     offer_add = subparsers.add_parser("offer-add")
     offer_add.add_argument("--name", required=True)
@@ -176,6 +192,16 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"B2B discovery {result.status}: created={result.created_count} existing={result.existing_count}")
         return 0
+    if args.command == "event-radar":
+        try:
+            service = EventDiscoveryService(store, YandexSearchClient())
+            queries = [args.query] if args.query else None
+            result = service.discover(queries, limit_per_query=args.limit)
+        except RuntimeError as exc:
+            print(f"Event discovery failed: {exc}")
+            return 1
+        print(f"Event discovery {result.status}: created={result.created_count} existing={result.existing_count}")
+        return 0
     if args.command == "seed-demo":
         created = seed_demo_store(store)
         print(f"Seeded demo with {created} opportunities")
@@ -191,6 +217,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "offers":
         for offer in store.list_service_offers():
             print(f"{offer.id}\t{offer.offer_type}\t{offer.name}\t{offer.status}\t{offer.audience}")
+        return 0
+    if args.command == "events":
+        for lead in store.list_leads():
+            if lead.category == "event":
+                print(f"{lead.id}\t{lead.name}\t{lead.status}\t{lead.deadline or '[НУЖНО УТОЧНИТЬ]'}\t{lead.next_action}")
         return 0
     if args.command == "application-create":
         application = create_application_for_opportunity(store, args.opportunity_id)
@@ -252,6 +283,27 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "b2b-draft":
         print(build_b2b_draft(store.get_lead(args.lead_id), store.list_fund_wiki(), store.list_service_offers()))
+        return 0
+    if args.command == "event-add":
+        lead = create_event_lead(store, name=args.name, url=args.url, description=args.description)
+        print(lead.id)
+        return 0
+    if args.command == "event-show":
+        lead = store.get_lead(args.lead_id)
+        if lead.category != "event":
+            raise KeyError(args.lead_id)
+        print(f"{lead.id}\tМероприятия и мерч\t{lead.name}\t{lead_status_label(lead.status)}")
+        print(f"url: {lead.url or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"description: {lead.description or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"owner: {lead.owner or 'Не назначен'}")
+        print(f"deadline: {lead.deadline or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"next_action: {lead.next_action}")
+        return 0
+    if args.command == "event-checklist":
+        lead = store.get_lead(args.lead_id)
+        if lead.category != "event":
+            raise KeyError(args.lead_id)
+        print(build_event_checklist(lead, store.list_fund_wiki()))
         return 0
     if args.command == "offer-add":
         offer = create_service_offer(

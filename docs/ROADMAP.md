@@ -89,6 +89,8 @@ Status: v1 implemented as a local-first B2B workspace. It creates `FundraisingLe
 - Учёт остатков мерча и простая unit economics.
 - Пост-отчёт по выручке, затратам и эффективности участия.
 
+Status: v1 implemented as a local-first event workspace. It creates `FundraisingLead(category="event")` records, runs curated manual event radar, and generates a practical checklist for deadline, fee, documents, fund description, merch/materials, volunteer shifts, logistics, and post-report prompts. It intentionally does not add inventory, sales, payments, volunteer scheduling, automatic applications, or external messages.
+
 ## Phase 8: Paid Services Agent
 
 Цель: поддержать предпринимательство внутри фонда.

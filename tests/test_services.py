@@ -31,6 +31,12 @@ from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
 from balance_fundraising.services.discovery import DiscoveryService
 from balance_fundraising.services.draft import build_application_draft
+from balance_fundraising.services.events import (
+    EventDiscoveryService,
+    build_event_checklist,
+    create_event_lead,
+    sanitize_event_error,
+)
 from balance_fundraising.services.offers import (
     build_offer_description,
     build_offer_readiness,
@@ -451,6 +457,75 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("[НУЖНО УТОЧНИТЬ]", draft)
         self.assertNotIn("Секретная заметка", draft)
 
+    def test_event_radar_creates_event_leads_and_deduplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            existing = FundraisingLead.from_values(
+                category="event",
+                name="Старый маркет",
+                url="https://events.example/existing",
+            )
+            existing.status = "accepted"
+            store.upsert_lead(existing)
+            result = EventDiscoveryService(store, FakeEventSearchClient()).discover(["НКО маркет"], limit_per_query=5)
+            leads = {item.url: item for item in store.list_leads()}
+            activity = store.list_activity()
+        self.assertEqual(result.created_count, 1)
+        self.assertEqual(result.existing_count, 1)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(leads["https://events.example/new"].category, "event")
+        self.assertEqual(leads["https://events.example/new"].status, "needs_review")
+        self.assertEqual(leads["https://events.example/existing"].status, "accepted")
+        self.assertTrue(any(item.action == "event_discover_run" and "created=1" in item.details for item in activity))
+
+    def test_event_radar_failure_logs_sanitized_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            "os.environ",
+            {"YANDEX_API_KEY": "SECRET_KEY", "YANDEX_FOLDER_ID": "SECRET_FOLDER"},
+        ):
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            result = EventDiscoveryService(store, FailingEventSearchClient()).discover(["ошибка"], limit_per_query=5)
+            activity = store.list_activity()
+            details = "\n".join(item.details for item in activity)
+        self.assertEqual(result.status, "failed")
+        self.assertIn("event_discover_error", {item.action for item in activity})
+        self.assertNotIn("SECRET_KEY", details)
+        self.assertNotIn("SECRET_FOLDER", details)
+        self.assertEqual(sanitize_event_error("SECRET failure"), "[скрыто] failure")
+
+    def test_event_checklist_uses_approved_fund_wiki_and_missing_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            lead = create_event_lead(
+                store,
+                name="Благотворительный маркет",
+                url="https://events.example/market",
+                description="Городской маркет ищет НКО-участников.",
+            )
+            lead.deadline = "2026-06-01"
+            lead.source_snippets = ["НКО могут подать заявку и продавать мерч."]
+            lead.missing_info = ["Уточнить взнос"]
+            lead.notes = "Внутренняя заметка: нельзя использовать как факт"
+            store.upsert_lead(lead)
+            checklist = build_event_checklist(lead, store.list_fund_wiki())
+            activity = store.list_activity()
+        self.assertIn("Чек-лист мероприятия", checklist)
+        self.assertIn("2026-06-01", checklist)
+        self.assertIn("Помогать людям с психическими расстройствами", checklist)
+        self.assertIn("Стоимость/взнос", checklist)
+        self.assertIn("Документы", checklist)
+        self.assertIn("Мерч и материалы", checklist)
+        self.assertIn("Волонтерские смены", checklist)
+        self.assertIn("Логистика", checklist)
+        self.assertIn("Пост-отчет", checklist)
+        self.assertIn("Уточнить взнос", checklist)
+        self.assertIn("[НУЖНО УТОЧНИТЬ]", checklist)
+        self.assertNotIn("нельзя использовать", checklist)
+        self.assertTrue(any(item.action == "event_add" for item in activity))
+
 
 class FakeSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
@@ -474,6 +549,19 @@ class FakeB2BSearchClient:
 
 
 class FailingB2BSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        raise RuntimeError("Yandex failed with SECRET_KEY in SECRET_FOLDER")
+
+
+class FakeEventSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [
+            SearchResult(title="Новый маркет", url="https://events.example/new", snippet="Благотворительная ярмарка для НКО"),
+            SearchResult(title="Старый маркет", url="https://events.example/existing", snippet="Обновленный фрагмент"),
+        ]
+
+
+class FailingEventSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
         raise RuntimeError("Yandex failed with SECRET_KEY in SECRET_FOLDER")
 

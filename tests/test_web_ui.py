@@ -18,6 +18,8 @@ from balance_fundraising.adapters.web import (
     render_application_detail,
     render_applications,
     render_dashboard,
+    render_event_detail,
+    render_events,
     render_fund_wiki,
     render_lead_detail,
     render_leads,
@@ -243,6 +245,38 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("Корпоративная лекция", b2b_html)
         self.assertIn("Психопросвещение для сотрудников", b2b_html)
 
+    def test_events_workspace_runs_radar_and_renders_checklist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            app = WebApp(store, event_search_client_factory=lambda: FakeEventSearchClient())
+            with patch.dict("os.environ", {}, clear=True):
+                status, html = app.render("/events")
+            post_status, location = app.post("/events/radar/run", {"query": "НКО маркет", "limit": "5"})
+            lead = store.list_leads()[0]
+            app.post(f"/events/{lead.id}/owner", {"owner": "Анна"})
+            app.post(f"/events/{lead.id}/status", {"status": "contact_planned", "review_state": "needs_review"})
+            app.post(f"/events/{lead.id}/note", {"notes": "Проверить взнос и смены волонтеров"})
+            events_html = render_events(store)
+            detail_html = render_event_detail(store, lead.id)
+            review_html = render_review_queue(store)
+            updated = store.get_lead(lead.id)
+        self.assertEqual(status, 200)
+        self.assertIn("Мероприятия", html)
+        self.assertIn("Нужны Yandex-настройки", html)
+        self.assertEqual(post_status, 303)
+        self.assertEqual(location, "/events")
+        self.assertEqual(updated.category, "event")
+        self.assertEqual(updated.owner, "Анна")
+        self.assertIn("НКО-маркеты", events_html)
+        self.assertIn("Новый маркет", events_html)
+        self.assertIn("Карточка мероприятия", detail_html)
+        self.assertIn("Чек-лист мероприятия", detail_html)
+        self.assertIn("Мерч и материалы", detail_html)
+        self.assertIn("Пост-отчет", detail_html)
+        self.assertIn("ничего не отправляет", detail_html)
+        self.assertIn("Новый маркет", review_html)
+
     def test_add_link_handler_creates_opportunity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = LocalJsonStore(Path(tmp) / "store.json")
@@ -311,6 +345,7 @@ class WebUiTests(unittest.TestCase):
             self.assertEqual(app.render("/leads")[0], 200)
             self.assertEqual(app.render("/b2b")[0], 200)
             self.assertEqual(app.render("/offers")[0], 200)
+            self.assertEqual(app.render("/events")[0], 200)
             status, location = app.post("/opportunities", {"url": "https://example.org/new"})
             opportunity_id = location.rsplit("/", 1)[-1]
             self.assertEqual(status, 303)
@@ -324,6 +359,10 @@ class WebUiTests(unittest.TestCase):
             offer_id = offer_location.rsplit("/", 1)[-1]
             self.assertEqual(offer_status, 303)
             self.assertEqual(app.render(f"/offers/{offer_id}")[0], 200)
+            event_status, event_location = app.post("/leads", {"category": "event", "name": "Новый маркет"})
+            event_id = event_location.rsplit("/", 1)[-1]
+            self.assertEqual(event_status, 303)
+            self.assertEqual(app.render(f"/events/{event_id}")[0], 200)
             app.post(f"/opportunities/{opportunity_id}/analyze", {"source_text": "НКО. Нужна отчетность."})
             detail_status, detail_html = app.render(f"/opportunities/{opportunity_id}")
         self.assertEqual(detail_status, 200)
@@ -507,6 +546,11 @@ class FailingRadarSearchClient:
 class FakeB2BSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):
         return [SearchResult(title="B2B компания", url="https://b2b.example/company", snippet="HR wellbeing для сотрудников")]
+
+
+class FakeEventSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="Новый маркет", url="https://events.example/market", snippet="НКО-маркеты принимают заявки")]
 
 
 if __name__ == "__main__":

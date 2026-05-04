@@ -25,11 +25,21 @@ class FakeB2BSearchClient:
         return [SearchResult(title="B2B компания", url="https://example.org/b2b", snippet="HR wellbeing для сотрудников")]
 
 
+class FakeEventSearchClient:
+    def search(self, query: str, *, groups_on_page: int = 10):
+        return [SearchResult(title="Новый НКО-маркет", url="https://example.org/event", snippet="НКО могут участвовать с мерчом")]
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         store = LocalJsonStore(Path(tmp) / "web-smoke-store.json")
         store.init_store()
-        app = WebApp(store, search_client_factory=lambda: FakeRadarSearchClient(), b2b_search_client_factory=lambda: FakeB2BSearchClient())
+        app = WebApp(
+            store,
+            search_client_factory=lambda: FakeRadarSearchClient(),
+            b2b_search_client_factory=lambda: FakeB2BSearchClient(),
+            event_search_client_factory=lambda: FakeEventSearchClient(),
+        )
         opportunity = add_opportunity(store, "https://example.org/opportunity")
         analyze_opportunity(
             store,
@@ -97,12 +107,18 @@ def main() -> int:
         )
         offer_id = offer_location.rsplit("/", 1)[-1]
         app.post(f"/offers/{offer_id}/status", {"status": "approved", "review_state": "approved"})
+        app.post("/events/radar/run", {"query": "НКО маркет", "limit": "5"})
+        event_lead = [item for item in store.list_leads() if item.url == "https://example.org/event"][0]
+        app.post(f"/events/{event_lead.id}/owner", {"owner": "Оператор"})
+        app.post(f"/events/{event_lead.id}/note", {"notes": "Проверить взнос и логистику."})
         root_status, root_html = app.render("/")
         radar_status, radar_html = app.render("/radar")
         b2b_status, b2b_html = app.render("/b2b")
         b2b_detail_status, b2b_detail_html = app.render(f"/b2b/{b2b_lead.id}")
         offers_status, offers_html = app.render("/offers")
         offer_detail_status, offer_detail_html = app.render(f"/offers/{offer_id}")
+        events_status, events_html = app.render("/events")
+        event_detail_status, event_detail_html = app.render(f"/events/{event_lead.id}")
         leads_status, leads_html = app.render("/leads")
         lead_detail_status, lead_detail_html = app.render(f"/leads/{lead.id}")
         applications_status, applications_html = app.render("/applications")
@@ -118,6 +134,8 @@ def main() -> int:
     assert offer_status == 303
     assert offers_status == 200
     assert offer_detail_status == 200
+    assert events_status == 200
+    assert event_detail_status == 200
     assert leads_status == 200
     assert lead_detail_status == 200
     assert applications_status == 200
@@ -135,6 +153,10 @@ def main() -> int:
     assert "Корпоративная лекция" in b2b_detail_html
     assert "Услуги" in offers_html
     assert "Корпоративная лекция" in offer_detail_html
+    assert "Мероприятия" in events_html
+    assert "Новый НКО-маркет" in event_detail_html
+    assert "Чек-лист мероприятия" in event_detail_html
+    assert "Мерч и материалы" in event_detail_html
     assert "Контакты и направления" in leads_html
     assert "Компания заботы" in lead_detail_html
     assert "ничего не отправляет" in lead_detail_html

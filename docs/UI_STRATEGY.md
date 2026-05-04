@@ -117,6 +117,8 @@ Add separate workspaces for B2B, private donors, bloggers, events, merch, and pa
 
 Phase 4 has started with "Услуги": operators can create and review paid service offers, track missing materials and unsafe promises, and let B2B drafts reference approved offers. The system still does not sell, publish, invoice, or send external messages.
 
+Phase 4 now includes "Мероприятия": operators can run curated event search, review `event` leads, open a market/fair card, and use a practical participation checklist. The UI keeps the scope intentionally narrow: deadline, fee, documents, fund description, merch/materials, volunteer shifts, logistics, evidence, notes, and post-report prompts. It does not manage stock, payments, sales, volunteer scheduling, or external applications.
+
 ## Engineering Implications
 
 - Keep service logic outside the UI so CLI, Telegram, and web screens reuse the same services.

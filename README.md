@@ -83,6 +83,11 @@ PYTHONPATH=src python -m balance_fundraising.cli offer-add --name "Корпор�
 PYTHONPATH=src python -m balance_fundraising.cli offer-show <offer_id>
 PYTHONPATH=src python -m balance_fundraising.cli offer-status <offer_id> approved
 PYTHONPATH=src python -m balance_fundraising.cli offer-note <offer_id> "Проверено вручную"
+PYTHONPATH=src python -m balance_fundraising.cli event-radar --query "НКО маркет подать заявку" --limit 5
+PYTHONPATH=src python -m balance_fundraising.cli events
+PYTHONPATH=src python -m balance_fundraising.cli event-add --name "Благотворительный маркет" --url https://events.example
+PYTHONPATH=src python -m balance_fundraising.cli event-show <lead_id>
+PYTHONPATH=src python -m balance_fundraising.cli event-checklist <lead_id>
 PYTHONPATH=src python -m balance_fundraising.cli bot
 PYTHONPATH=src python -m balance_fundraising.cli seed-demo
 PYTHONPATH=src python -m balance_fundraising.cli web
@@ -111,7 +116,7 @@ Run:
 PYTHONPATH=src python -m balance_fundraising.cli web
 ```
 
-Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, radar, B2B workspace, `Услуги`, review queue, opportunity list, application list and detail pages, `Контакты и направления`, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In B2B, an operator can search company leads, analyze pasted source text, and review a draft first-contact letter and one-pager with approved service offers. In `Услуги`, an operator can keep internal paid-service descriptions, gaps, materials, owner, notes, and review state. In the opportunity, application, lead, and offer cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
+Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, radar, B2B workspace, `Услуги`, `Мероприятия`, review queue, opportunity list, application list and detail pages, `Контакты и направления`, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the radar, an operator can launch curated Yandex Search discovery and keep new findings in human review. In B2B, an operator can search company leads, analyze pasted source text, and review a draft first-contact letter and one-pager with approved service offers. In `Услуги`, an operator can keep internal paid-service descriptions, gaps, materials, owner, notes, and review state. In `Мероприятия`, an operator can search NKO markets and charity fairs, open event cards, and use a practical checklist for deadline, fee, documents, materials, volunteer shifts, logistics, and post-report notes without inventory, payments, or external sends. In the opportunity, application, lead, offer, and event cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
 
 Use `seed-demo` in local mode to create a training dataset for a non-IT operator. It adds demo opportunities and one starter application record; it does not call Yandex, Google, Telegram, or partner services.
 

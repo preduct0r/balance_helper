@@ -218,7 +218,7 @@
       "Event checklist covers application deadline, materials, volunteers, merch, costs, and post-report.",
       "No inventory-heavy workflow is added before validation."
     ],
-    "passes": false
+    "passes": true
   },
   {
     "id": "blogger-ambassador-agent",

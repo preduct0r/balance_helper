@@ -245,6 +245,18 @@ PYTHONPATH=src python3 -m balance_fundraising.cli offer-status <offer_id> approv
 PYTHONPATH=src python3 -m balance_fundraising.cli offer-note <offer_id> "Проверено вручную"
 ```
 
+Run event radar and prepare an event checklist:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli event-radar --query "НКО маркет подать заявку" --limit 5
+PYTHONPATH=src python3 -m balance_fundraising.cli events
+PYTHONPATH=src python3 -m balance_fundraising.cli event-add --name "Благотворительный маркет" --url https://events.example --description "Маркет для НКО и локальных брендов"
+PYTHONPATH=src python3 -m balance_fundraising.cli event-show <lead_id>
+PYTHONPATH=src python3 -m balance_fundraising.cli event-checklist <lead_id>
+```
+
+Event v1 is for deciding and preparing participation. It is без складского учета, без продаж, без платежей, без расчета остатков and without automatic applications.
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -294,6 +306,7 @@ The first web UI is local-only. It shows:
 - `Радар` for curated Yandex Search discovery;
 - `B2B` for company search, fit review, risk checks, and first-contact drafts;
 - `Услуги` for paid service offers, materials, gaps, owner, and review state;
+- `Мероприятия` for NKO markets, charity fairs, event leads, practical checklists, and post-report notes;
 - `Контакты и направления` for future B2B, paid services, events, bloggers, and donor campaign records;
 - opportunity list;
 - application list;
@@ -332,6 +345,18 @@ CLI equivalents are `b2b-radar`, `b2b-analyze`, and `b2b-draft`. B2B v1 does not
 6. Open a B2B lead: approved offers can appear in the first-contact draft and one-pager.
 
 CLI equivalents are `offers`, `offer-add`, `offer-show`, `offer-status`, and `offer-note`. The service does not sell, invoice, send emails, create CRM tasks, or publish landing pages.
+
+### Мероприятия: как подготовить участие в маркете или ярмарке
+
+1. Open "Мероприятия".
+2. Choose a curated query such as an NKO market or charity fair, or type a one-time query.
+3. Keep the limit at `5` for early searches.
+4. Open an event card and check source, deadline, owner, missing info, and evidence.
+5. Use the event checklist to verify application deadline, fee, documents, fund description, merch/materials, volunteer shifts, logistics, and post-report.
+6. Mark unknown facts as tasks; do not replace `[НУЖНО УТОЧНИТЬ]` with guesses.
+7. Contact organizers, submit forms, publish announcements, and use materials only after human review outside the service.
+
+CLI equivalents are `event-radar`, `events`, `event-add`, `event-show`, and `event-checklist`. Event v1 is без складского учета, без продаж, без платежей, без расчета остатков, and without automatic applications or messages to organizers.
 
 ### Контакты и направления
 

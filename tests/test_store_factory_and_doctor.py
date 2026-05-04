@@ -249,6 +249,65 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
         self.assertIn("Черновик первого письма", draft_text)
         self.assertIn("One-pager", draft_text)
 
+    def test_cli_event_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            fake_service = FakeEventDiscoveryService()
+            output = io.StringIO()
+            with patch("balance_fundraising.cli.YandexSearchClient", return_value=object()):
+                with patch("balance_fundraising.cli.EventDiscoveryService", return_value=fake_service):
+                    with contextlib.redirect_stdout(output):
+                        radar_code = cli_main(
+                            [
+                                "--store",
+                                str(store_path),
+                                "event-radar",
+                                "--query",
+                                "НКО маркет",
+                                "--limit",
+                                "5",
+                            ]
+                        )
+            self.assertEqual(radar_code, 0)
+            self.assertEqual(fake_service.queries, ["НКО маркет"])
+            self.assertEqual(fake_service.limit_per_query, 5)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                add_code = cli_main(
+                    [
+                        "--store",
+                        str(store_path),
+                        "event-add",
+                        "--name",
+                        "Благотворительный маркет",
+                        "--url",
+                        "https://events.example/market",
+                        "--description",
+                        "Маркет для НКО и локальных брендов",
+                    ]
+                )
+            lead_id = output.getvalue().strip()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                list_code = cli_main(["--store", str(store_path), "events"])
+            list_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                show_code = cli_main(["--store", str(store_path), "event-show", lead_id])
+            show_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                checklist_code = cli_main(["--store", str(store_path), "event-checklist", lead_id])
+            checklist_text = output.getvalue()
+        self.assertEqual(add_code, 0)
+        self.assertEqual(list_code, 0)
+        self.assertEqual(show_code, 0)
+        self.assertEqual(checklist_code, 0)
+        self.assertIn("Благотворительный маркет", list_text)
+        self.assertIn("Маркет для НКО", show_text)
+        self.assertIn("Чек-лист мероприятия", checklist_text)
+        self.assertIn("Мерч и материалы", checklist_text)
+
     def test_cli_offer_commands_and_b2b_draft_uses_approved_offer(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store_path = Path(tmp) / "store.json"
@@ -324,6 +383,10 @@ class FakeDiscoveryService:
 
 
 class FakeB2BDiscoveryService(FakeDiscoveryService):
+    pass
+
+
+class FakeEventDiscoveryService(FakeDiscoveryService):
     pass
 
 
