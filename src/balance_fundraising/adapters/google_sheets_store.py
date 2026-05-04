@@ -75,12 +75,29 @@ class GoogleSheetsStore:
         self._upsert_row("FundWiki", "key", entry.to_dict())
 
     def add_activity(self, entry: ActivityLogEntry) -> None:
+        if not entry.id:
+            entry = ActivityLogEntry.from_dict(entry.to_dict())
         worksheet = self._worksheet("ActivityLog")
         self._ensure_headers(worksheet, list(entry.to_dict().keys()))
         worksheet.append_row(list(entry.to_dict().values()))
 
     def list_activity(self) -> List[ActivityLogEntry]:
         return [ActivityLogEntry.from_dict(row) for row in self._records("ActivityLog")]
+
+    def update_activity_fields(self, activity_id: str, fields: Dict[str, object]) -> ActivityLogEntry:
+        worksheet = self._worksheet("ActivityLog")
+        records = worksheet.get_all_records()
+        for index, row in enumerate(records, start=2):
+            entry = ActivityLogEntry.from_dict(row)
+            if entry.id == activity_id:
+                for key, value in fields.items():
+                    setattr(entry, key, value)
+                payload = entry.to_dict()
+                headers = list(payload.keys())
+                self._ensure_headers(worksheet, headers)
+                worksheet.update(f"A{index}", [[self._cell_value(payload.get(header)) for header in headers]])
+                return entry
+        raise KeyError(f"Activity not found: {activity_id}")
 
     def _open(self):
         if self._spreadsheet is None:

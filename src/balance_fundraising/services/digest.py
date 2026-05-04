@@ -56,7 +56,7 @@ def _application_digest_lines(application: Application, today: date, horizon_day
         if label:
             prefix = "ответ просрочен" if application.response_due_at < today.isoformat() else "ответ до"
             lines.append(f"- {application.id}: {prefix} {application.response_due_at}; {application.next_action}")
-    if application.reporting_due_at:
+    if application.reporting_due_at and application.reporting_state != "prepared_by_human":
         label = _deadline_label(application.reporting_due_at, today, horizon_days)
         if label:
             prefix = "отчет просрочен" if application.reporting_due_at < today.isoformat() else "отчет до"

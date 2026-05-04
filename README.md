@@ -67,6 +67,9 @@ PYTHONPATH=src python -m balance_fundraising.cli digest
 PYTHONPATH=src python -m balance_fundraising.cli applications
 PYTHONPATH=src python -m balance_fundraising.cli application-create <opportunity_id>
 PYTHONPATH=src python -m balance_fundraising.cli application-status <application_id> waiting_response
+PYTHONPATH=src python -m balance_fundraising.cli application-show <application_id>
+PYTHONPATH=src python -m balance_fundraising.cli application-dates <application_id> --response-due 2026-05-20 --reporting-due 2026-06-20 --recheck 2026-05-30
+PYTHONPATH=src python -m balance_fundraising.cli application-note <application_id> "Ответ ждём в кабинете платформы"
 PYTHONPATH=src python -m balance_fundraising.cli bot
 PYTHONPATH=src python -m balance_fundraising.cli seed-demo
 PYTHONPATH=src python -m balance_fundraising.cli web
@@ -95,7 +98,7 @@ Run:
 PYTHONPATH=src python -m balance_fundraising.cli web
 ```
 
-Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, review queue, opportunity list, application list, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the opportunity card, an operator can update status, review state, owner, notes, checklist progress, application readiness, and the internal application pipeline without sending anything outside the service.
+Open `http://127.0.0.1:8080`. The web UI is local-only and shows the same operator workflow as CLI: dashboard, review queue, opportunity list, application list and detail pages, FundWiki passport, first-run validation screen, opportunity detail, checklist, draft, and local heuristic analysis. In the opportunity and application cards, an operator can update status, review state, owner, notes, checklist progress, application readiness, follow-up dates, response summary, reporting state, and first-run observations without sending anything outside the service.
 
 Use `seed-demo` in local mode to create a training dataset for a non-IT operator. It adds demo opportunities and one starter application record; it does not call Yandex, Google, Telegram, or partner services.
 

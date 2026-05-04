@@ -109,10 +109,38 @@ class StoreFactoryAndDoctorTests(unittest.TestCase):
             output = io.StringIO()
             with contextlib.redirect_stdout(output):
                 list_code = cli_main(["--store", str(store_path), "applications"])
+            list_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                show_code = cli_main(["--store", str(store_path), "application-show", application_id])
+            show_text = output.getvalue()
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                dates_code = cli_main(
+                    [
+                        "--store",
+                        str(store_path),
+                        "application-dates",
+                        application_id,
+                        "--response-due",
+                        "2026-05-20",
+                        "--reporting-due",
+                        "2026-06-20",
+                        "--recheck",
+                        "2026-05-30",
+                    ]
+                )
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                note_code = cli_main(["--store", str(store_path), "application-note", application_id, "Ответ ждём в кабинете"])
         self.assertEqual(exit_code, 0)
         self.assertEqual(status_code, 0)
         self.assertEqual(list_code, 0)
-        self.assertIn("waiting_response", output.getvalue())
+        self.assertEqual(show_code, 0)
+        self.assertEqual(dates_code, 0)
+        self.assertEqual(note_code, 0)
+        self.assertIn("waiting_response", list_text)
+        self.assertIn(application_id, show_text)
 
 
 class FakeStore:

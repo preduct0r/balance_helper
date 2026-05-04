@@ -27,6 +27,7 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - [x] Add UX-focused review/edit workspace on top of the local web UI.
 - [x] Add FundWiki passport editing, readiness blockers, and local demo seed workflow.
 - [x] Add first-run validation screen and guided internal application pipeline.
+- [x] Add application follow-up, reporting, application detail, and feedback status workflow.
 
 ## Done Means
 
@@ -38,3 +39,4 @@ Implement a tested Python MVP that helps a fundraiser discover, analyze, track, 
 - `scripts/smoke_web_render.py` completes without external services.
 - `seed-demo` creates a local training dataset without external services.
 - Operators can create and update internal application records without any external sends.
+- Operators can track response, reporting, recheck, and first-run feedback statuses without external sends.

@@ -16,6 +16,11 @@ def application_id_for_opportunity(opportunity_id: str) -> str:
     return f"app_{digest}"
 
 
+def activity_id_for_values(timestamp: str, action: str, entity_id: str, details: str) -> str:
+    digest = hashlib.sha1(f"{timestamp}|{action}|{entity_id}|{details}".encode("utf-8")).hexdigest()[:10]
+    return f"act_{digest}"
+
+
 @dataclass
 class Opportunity:
     id: str
@@ -108,6 +113,9 @@ class Application:
     submitted_by: str = ""
     status_updated_at: Optional[str] = None
     notes: str = ""
+    response_summary: str = ""
+    reporting_state: str = "not_started"
+    reporting_done_at: Optional[str] = None
 
     @classmethod
     def from_opportunity(cls, opportunity_id: str) -> "Application":
@@ -174,10 +182,19 @@ class ActivityLogEntry:
     action: str
     entity_id: str
     details: str = ""
+    id: str = ""
+    status: str = ""
 
     @classmethod
     def today(cls, *, action: str, entity_id: str, details: str = "") -> "ActivityLogEntry":
-        return cls(timestamp=date.today().isoformat(), action=action, entity_id=entity_id, details=details)
+        timestamp = date.today().isoformat()
+        return cls(
+            timestamp=timestamp,
+            action=action,
+            entity_id=entity_id,
+            details=details,
+            id=activity_id_for_values(timestamp, action, entity_id, details),
+        )
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ActivityLogEntry":
@@ -190,7 +207,10 @@ class ActivityLogEntry:
             if value is None and field_info.default is not MISSING:
                 continue
             payload[field_name] = value
-        return cls(**payload)
+        entry = cls(**payload)
+        if not entry.id:
+            entry.id = activity_id_for_values(entry.timestamp, entry.action, entry.entity_id, entry.details)
+        return entry
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

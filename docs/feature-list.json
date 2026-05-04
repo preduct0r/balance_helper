@@ -147,5 +147,18 @@
       "README, docs/USAGE.md, docs/UI_STRATEGY.md, and smoke checks document the guided application pipeline."
     ],
     "passes": true
+  },
+  {
+    "id": "application-followup-reporting-workflow",
+    "priority": 1,
+    "description": "Operator can manage application response follow-up, reporting, application history, and first-run feedback statuses without external sends.",
+    "acceptance_steps": [
+      "Application detail page shows linked opportunity, dates, next action, notes, response summary, reporting checklist, and activity history.",
+      "Response and reporting actions update only internal records and write ActivityLog entries.",
+      "Applications list links records and shows blockers for missing owner, overdue response, overdue report, and recheck-later.",
+      "First-run feedback entries have internal statuses that can be updated through the web UI.",
+      "README, docs/USAGE.md, docs/UI_STRATEGY.md, and smoke checks document the follow-up/reporting workflow."
+    ],
+    "passes": true
   }
 ]

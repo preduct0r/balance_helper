@@ -5,6 +5,7 @@ from typing import Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 from balance_fundraising.adapters.web_templates import (
+    render_application_detail_page,
     render_applications_page,
     render_dashboard_page,
     render_first_run_page,
@@ -18,10 +19,14 @@ from balance_fundraising.adapters.web_templates import (
 from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
 from balance_fundraising.services.applications import (
+    build_reporting_checklist,
     create_application_for_opportunity,
     update_application_dates,
     update_application_note,
+    update_application_reporting,
+    update_application_response,
     update_application_status,
+    update_feedback_status,
 )
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.digest import build_digest
@@ -43,12 +48,17 @@ class WebApp:
             return 200, render_opportunities(self.store.list_opportunities())
         if route == "/applications":
             return 200, render_applications(self.store)
+        if route.startswith("/applications/"):
+            application_id = unquote(route.removeprefix("/applications/")).strip("/")
+            if "/" in application_id or not application_id:
+                return 404, render_not_found()
+            return 200, render_application_detail(self.store, application_id)
         if route == "/review":
             return 200, render_review_queue(self.store)
         if route == "/fund-wiki":
             return 200, render_fund_wiki(self.store)
         if route == "/first-run":
-            return 200, render_first_run()
+            return 200, render_first_run(self.store)
         if route.startswith("/opportunities/"):
             opportunity_id = unquote(route.removeprefix("/opportunities/")).strip("/")
             if "/" in opportunity_id or not opportunity_id:
@@ -70,6 +80,13 @@ class WebApp:
             return 303, "/fund-wiki"
         if route == "/first-run/feedback":
             add_operator_feedback(self.store, form.get("feedback", ""))
+            return 303, "/first-run"
+        feedback_action = _parse_feedback_action(route)
+        if feedback_action is not None:
+            activity_id, action_name = feedback_action
+            if action_name != "status":
+                return 404, render_not_found()
+            update_feedback_status(self.store, activity_id, form.get("status", "new"))
             return 303, "/first-run"
         application_action = _parse_application_action(route)
         if application_action is not None:
@@ -93,10 +110,24 @@ class WebApp:
                 )
             elif action_name == "note":
                 update_application_note(self.store, application_id, form.get("notes", ""))
+            elif action_name == "response":
+                update_application_response(
+                    self.store,
+                    application_id,
+                    status=form.get("status", "waiting_response"),
+                    response_summary=form.get("response_summary", ""),
+                )
+            elif action_name == "reporting":
+                update_application_reporting(
+                    self.store,
+                    application_id,
+                    reporting_state=form.get("reporting_state", "not_started"),
+                    reporting_done_at=form.get("reporting_done_at", ""),
+                    notes=form.get("notes", ""),
+                )
             else:
                 return 404, render_not_found()
-            application = self.store.get_application(application_id)
-            return 303, f"/opportunities/{application.opportunity_id}"
+            return 303, f"/applications/{application_id}"
         action = _parse_opportunity_action(route)
         if action is None:
             return 404, render_not_found()
@@ -223,6 +254,21 @@ def render_applications(store) -> str:
     return render_applications_page(store.list_applications(), store.list_opportunities())
 
 
+def render_application_detail(store, application_id: str) -> str:
+    try:
+        application = store.get_application(application_id)
+        opportunity = store.get_opportunity(application.opportunity_id)
+    except KeyError:
+        return render_not_found()
+    activity = [item for item in store.list_activity() if item.entity_id == application.id]
+    return render_application_detail_page(
+        application=application,
+        opportunity=opportunity,
+        reporting_checklist=build_reporting_checklist(application, opportunity),
+        activity=activity,
+    )
+
+
 def render_review_queue(store) -> str:
     opportunities = review_queue_items(store.list_opportunities())
     return render_review_queue_page(opportunities)
@@ -253,8 +299,8 @@ def render_opportunity_detail(store, opportunity_id: str) -> str:
     )
 
 
-def render_first_run() -> str:
-    return render_first_run_page()
+def render_first_run(store) -> str:
+    return render_first_run_page(store.list_activity())
 
 
 def review_queue_items(opportunities: Iterable[Opportunity]) -> List[Opportunity]:
@@ -283,6 +329,16 @@ def _parse_application_action(route: str) -> Optional[tuple[str, str]]:
         return None
     _, application_id, action = parts
     return unquote(application_id), action
+
+
+def _parse_feedback_action(route: str) -> Optional[tuple[str, str]]:
+    if not route.startswith("/feedback/"):
+        return None
+    parts = [part for part in route.split("/") if part]
+    if len(parts) != 3:
+        return None
+    _, activity_id, action = parts
+    return unquote(activity_id), action
 
 
 def make_handler(app: WebApp):

@@ -12,13 +12,14 @@ from balance_fundraising.adapters.web import (
     WebApp,
     add_opportunity,
     analyze_opportunity,
+    render_application_detail,
     render_applications,
     render_dashboard,
     render_fund_wiki,
     render_opportunity_detail,
     render_review_queue,
 )
-from balance_fundraising.domain import FundWikiEntry, Opportunity
+from balance_fundraising.domain import ActivityLogEntry, FundWikiEntry, Opportunity
 
 
 class WebUiTests(unittest.TestCase):
@@ -238,6 +239,58 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("человек уже подал заявку", detail_html)
         self.assertIn("Система ничего не отправляла", detail_html)
 
+    def test_application_detail_and_followup_handlers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = add_opportunity(store, "https://example.org/followup")
+            opportunity.name = "Грант с отчетом"
+            opportunity.reporting_requirements = ["Финансовый отчет"]
+            store.upsert_opportunity(opportunity)
+            app = WebApp(store)
+            app.post(f"/opportunities/{opportunity.id}/application", {})
+            application = store.list_applications()[0]
+            status, html = app.render(f"/applications/{application.id}")
+            response_status, response_location = app.post(
+                f"/applications/{application.id}/response",
+                {"status": "accepted", "response_summary": "Приняли, ждут отчет"},
+            )
+            reporting_status, reporting_location = app.post(
+                f"/applications/{application.id}/reporting",
+                {"reporting_state": "prepared_by_human", "reporting_done_at": "2026-05-15", "notes": "Отчет проверен"},
+            )
+            detail_html = render_application_detail(store, application.id)
+            updated = store.get_application(application.id)
+        self.assertEqual(status, 200)
+        self.assertIn("Карточка заявки", html)
+        self.assertIn("Грант с отчетом", html)
+        self.assertIn("Система ничего не отправляет", html)
+        self.assertEqual(response_status, 303)
+        self.assertEqual(response_location, f"/applications/{application.id}")
+        self.assertEqual(reporting_status, 303)
+        self.assertEqual(reporting_location, f"/applications/{application.id}")
+        self.assertEqual(updated.status, "accepted")
+        self.assertEqual(updated.response_summary, "Приняли, ждут отчет")
+        self.assertEqual(updated.reporting_state, "prepared_by_human")
+        self.assertIn("Финансовый отчет", detail_html)
+        self.assertIn("История", detail_html)
+
+    def test_applications_list_links_records_and_shows_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = add_opportunity(store, "https://example.org/list")
+            opportunity.name = "Площадка со сроками"
+            store.upsert_opportunity(opportunity)
+            app = WebApp(store)
+            app.post(f"/opportunities/{opportunity.id}/application", {})
+            application = store.list_applications()[0]
+            store.update_application_fields(application.id, {"status": "reporting_needed", "reporting_due_at": "2026-04-12"})
+            html = render_applications(store)
+        self.assertIn(f"/applications/{application.id}", html)
+        self.assertIn("нет ответственного", html)
+        self.assertIn("отчет просрочен", html)
+
     def test_first_run_feedback_is_logged(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = LocalJsonStore(Path(tmp) / "store.json")
@@ -251,6 +304,23 @@ class WebUiTests(unittest.TestCase):
         self.assertEqual(status, 303)
         self.assertEqual(location, "/first-run")
         self.assertTrue(any(item.action == "operator_feedback" for item in activity))
+
+    def test_first_run_shows_feedback_and_status_update(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            entry = ActivityLogEntry.today(action="operator_feedback", entity_id="first-run", details="Неясен дедлайн")
+            store.add_activity(entry)
+            feedback_id = store.list_activity()[0].id
+            app = WebApp(store)
+            html = app.render("/first-run")[1]
+            status, location = app.post(f"/feedback/{feedback_id}/status", {"status": "reviewed"})
+            updated = store.list_activity()[0]
+        self.assertIn("Журнал наблюдений", html)
+        self.assertIn("Неясен дедлайн", html)
+        self.assertEqual(status, 303)
+        self.assertEqual(location, "/first-run")
+        self.assertEqual(updated.status, "reviewed")
 
 
 if __name__ == "__main__":

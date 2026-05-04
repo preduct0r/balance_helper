@@ -12,7 +12,12 @@ from balance_fundraising.clients.yandex_llm import YandexLLMClient
 from balance_fundraising.clients.yandex_search import YandexSearchClient
 from balance_fundraising.domain import ActivityLogEntry, Opportunity
 from balance_fundraising.services.analysis import OpportunityAnalysisService
-from balance_fundraising.services.applications import create_application_for_opportunity, update_application_status
+from balance_fundraising.services.applications import (
+    create_application_for_opportunity,
+    update_application_dates,
+    update_application_note,
+    update_application_status,
+)
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
@@ -56,6 +61,19 @@ def main(argv: list[str] | None = None) -> int:
     application_status = subparsers.add_parser("application-status")
     application_status.add_argument("application_id")
     application_status.add_argument("status")
+
+    application_show = subparsers.add_parser("application-show")
+    application_show.add_argument("application_id")
+
+    application_dates = subparsers.add_parser("application-dates")
+    application_dates.add_argument("application_id")
+    application_dates.add_argument("--response-due", default="")
+    application_dates.add_argument("--reporting-due", default="")
+    application_dates.add_argument("--recheck", default="")
+
+    application_note = subparsers.add_parser("application-note")
+    application_note.add_argument("application_id")
+    application_note.add_argument("text")
 
     subparsers.add_parser("bot")
 
@@ -103,6 +121,28 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "application-status":
         application = update_application_status(store, args.application_id, args.status)
         print(f"{application.id}: {application.status}")
+        return 0
+    if args.command == "application-show":
+        application = store.get_application(args.application_id)
+        print(f"{application.id}\t{application.opportunity_id}\t{application.status}\t{application.next_action}")
+        print(f"owner: {application.owner or 'Не назначен'}")
+        print(f"response_due_at: {application.response_due_at or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"reporting_due_at: {application.reporting_due_at or '[НУЖНО УТОЧНИТЬ]'}")
+        print(f"recheck_at: {application.recheck_at or '[НУЖНО УТОЧНИТЬ]'}")
+        return 0
+    if args.command == "application-dates":
+        application = update_application_dates(
+            store,
+            args.application_id,
+            response_due_at=args.response_due,
+            reporting_due_at=args.reporting_due,
+            recheck_at=args.recheck,
+        )
+        print(f"{application.id}: dates updated")
+        return 0
+    if args.command == "application-note":
+        application = update_application_note(store, args.application_id, args.text)
+        print(f"{application.id}: note updated")
         return 0
     if args.command == "analyze":
         text = Path(args.text_file).read_text(encoding="utf-8") if args.text_file else None

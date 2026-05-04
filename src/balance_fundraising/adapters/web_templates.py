@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from datetime import date
 from html import escape
 from typing import Iterable, List
 
 from balance_fundraising.adapters.web_static import WEB_CSS
-from balance_fundraising.domain import Application, FundWikiEntry, Opportunity
-from balance_fundraising.services.applications import APPLICATION_STATUS_LABELS, application_status_label
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
+from balance_fundraising.services.applications import (
+    APPLICATION_STATUS_LABELS,
+    REPORTING_STATE_LABELS,
+    application_status_label,
+    reporting_state_label,
+)
 from balance_fundraising.services.fund_wiki import REQUIRED_FUND_WIKI_FIELDS, fund_wiki_by_key, fund_wiki_label
 from balance_fundraising.services.readiness import ReadinessReport
 
@@ -126,7 +132,7 @@ def render_applications_page(applications: Iterable[Application], opportunities:
     return render_layout("Заявки", "\n".join(body))
 
 
-def render_first_run_page() -> str:
+def render_first_run_page(activity: Iterable[ActivityLogEntry]) -> str:
     checklist = [
         "Добавить одну реальную ссылку или открыть демо-возможность.",
         "Разобрать страницу и проверить факты рядом с подтверждениями.",
@@ -145,8 +151,62 @@ def render_first_run_page() -> str:
         "<button type=\"submit\">Сохранить наблюдение</button>",
         "</form>",
         "</section>",
+        render_feedback_log(activity),
     ]
     return render_layout("Первый прогон", "\n".join(body))
+
+
+def render_application_detail_page(
+    *,
+    application: Application,
+    opportunity: Opportunity,
+    reporting_checklist: str,
+    activity: Iterable[ActivityLogEntry],
+) -> str:
+    body = [
+        "<section>",
+        "<h2>Карточка заявки</h2>",
+        "<div class=\"callout\">Система ничего не отправляет наружу. Здесь фиксируются только действия человека и следующие шаги.</div>",
+        fact_row_html("Возможность", f"<a href=\"/opportunities/{escape(opportunity.id)}\">{escape(opportunity.name)}</a>"),
+        fact_row("Стадия", application_status_label(application.status)),
+        fact_row("Ответственный", application.owner or "Не назначен"),
+        fact_row("Следующий шаг", application.next_action),
+        fact_row("Дата подачи", application.submitted_at or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Срок ответа", application.response_due_at or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Срок отчета", application.reporting_due_at or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Проверить позже", application.recheck_at or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Результат ответа", application.response_summary or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Отчетность", reporting_state_label(application.reporting_state)),
+        fact_row("Отчет подготовлен", application.reporting_done_at or "[НУЖНО УТОЧНИТЬ]"),
+        fact_row("Заметка", application.notes or "Нет заметки"),
+        "</section>",
+        render_application_status_form(application, target=f"/applications/{escape(application.id)}/status"),
+        render_application_dates_form(application, target=f"/applications/{escape(application.id)}/dates"),
+        "<section>",
+        "<h2>Ответ площадки</h2>",
+        f"<form method=\"post\" action=\"/applications/{escape(application.id)}/response\">",
+        f"<label>Результат <select name=\"status\">{application_status_options(application.status)}</select></label>",
+        f"<label>Кратко что ответили<textarea name=\"response_summary\" rows=\"4\">{escape(application.response_summary)}</textarea></label>",
+        "<button type=\"submit\">Зафиксировать ответ</button>",
+        "</form>",
+        "</section>",
+        "<section>",
+        "<h2>Отчетность</h2>",
+        f"<pre>{escape(reporting_checklist)}</pre>",
+        f"<form method=\"post\" action=\"/applications/{escape(application.id)}/reporting\">",
+        f"<label>Состояние отчета <select name=\"reporting_state\">{reporting_state_options(application.reporting_state)}</select></label>",
+        f"<label>Когда отчет подготовлен человеком <input name=\"reporting_done_at\" value=\"{escape(application.reporting_done_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
+        f"<label>Заметка по отчету<textarea name=\"notes\" rows=\"4\">{escape(application.notes)}</textarea></label>",
+        "<button type=\"submit\">Сохранить отчетность</button>",
+        "</form>",
+        "</section>",
+        render_application_note_form(application, target=f"/applications/{escape(application.id)}/note"),
+        "<section>",
+        "<h2>История</h2>",
+        render_activity_log(activity, empty_text="История заявки пока пуста."),
+        "</section>",
+    ]
+    return render_layout("Карточка заявки", "\n".join(body))
 
 
 def render_fund_wiki_page(entries: Iterable[FundWikiEntry]) -> str:
@@ -323,21 +383,22 @@ def render_application_table(
     *,
     empty_text: str,
 ) -> str:
-    rows = list(applications)
+    rows = sorted(applications, key=application_sort_key)
     if not rows:
         return f"<p class=\"muted\">{escape(empty_text)}</p>"
     opportunity_names = {item.id: item.name for item in opportunities}
     body_rows = []
     for application in rows:
         opportunity_name = opportunity_names.get(application.opportunity_id, application.opportunity_id)
+        blockers = render_application_blockers(application)
         body_rows.append(
             "<tr>"
-            f"<td>{escape(opportunity_name)}<br><span class=\"muted\">{escape(application.id)}</span></td>"
+            f"<td><a href=\"/applications/{escape(application.id)}\">{escape(opportunity_name)}</a><br><span class=\"muted\">{escape(application.id)}</span></td>"
             f"<td>{status_badge(application_status_label(application.status))}</td>"
             f"<td>{escape(application.owner or 'Не назначен')}</td>"
             f"<td>{escape(application.response_due_at or '[НУЖНО УТОЧНИТЬ]')}</td>"
             f"<td>{escape(application.reporting_due_at or '[НУЖНО УТОЧНИТЬ]')}</td>"
-            f"<td>{escape(application.next_action)}</td>"
+            f"<td>{escape(application.next_action)}{blockers}</td>"
             "</tr>"
         )
     return (
@@ -423,23 +484,10 @@ def render_opportunity_applications(opportunity: Opportunity, applications: List
                 fact_row("Срок отчета", application.reporting_due_at or "[НУЖНО УТОЧНИТЬ]"),
                 fact_row("Проверить позже", application.recheck_at or "[НУЖНО УТОЧНИТЬ]"),
                 fact_row("Следующий шаг", application.next_action),
-                f"<form method=\"post\" action=\"/applications/{escape(application.id)}/status\">",
-                f"<label>Стадия <select name=\"status\">{application_status_options(application.status)}</select></label>",
-                f"<label>Ответственный <input name=\"owner\" value=\"{escape(application.owner, quote=True)}\" placeholder=\"Имя\"></label>",
-                f"<label>Кто подал <input name=\"submitted_by\" value=\"{escape(application.submitted_by, quote=True)}\" placeholder=\"Имя, если уже подано\"></label>",
-                "<button type=\"submit\">Сохранить стадию</button>",
-                "</form>",
-                f"<form method=\"post\" action=\"/applications/{escape(application.id)}/dates\">",
-                f"<label>Дата подачи <input name=\"submitted_at\" value=\"{escape(application.submitted_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
-                f"<label>Срок ответа <input name=\"response_due_at\" value=\"{escape(application.response_due_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
-                f"<label>Срок отчета <input name=\"reporting_due_at\" value=\"{escape(application.reporting_due_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
-                f"<label>Проверить позже <input name=\"recheck_at\" value=\"{escape(application.recheck_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>",
-                "<button type=\"submit\">Сохранить сроки</button>",
-                "</form>",
-                f"<form method=\"post\" action=\"/applications/{escape(application.id)}/note\">",
-                f"<label>Заметка по заявке<textarea name=\"notes\" rows=\"4\">{escape(application.notes)}</textarea></label>",
-                "<button type=\"submit\">Сохранить заметку</button>",
-                "</form>",
+                fact_row_html("Полная карточка", f"<a href=\"/applications/{escape(application.id)}\">Открыть заявку</a>"),
+                render_application_status_form(application, target=f"/applications/{escape(application.id)}/status"),
+                render_application_dates_form(application, target=f"/applications/{escape(application.id)}/dates"),
+                render_application_note_form(application, target=f"/applications/{escape(application.id)}/note"),
             ]
         )
     blocks.append("</section>")
@@ -516,6 +564,20 @@ def application_status_options(current: str) -> str:
     return "".join(option(value, label, current) for value, label in APPLICATION_STATUS_LABELS.items())
 
 
+def reporting_state_options(current: str) -> str:
+    return "".join(option(value, label, current) for value, label in REPORTING_STATE_LABELS.items())
+
+
+def feedback_status_options(current: str) -> str:
+    states = {
+        "new": "Новое",
+        "reviewed": "Просмотрено",
+        "converted_to_task": "Превращено в задачу",
+        "ignored": "Не берем в работу",
+    }
+    return "".join(option(value, label, current or "new") for value, label in states.items())
+
+
 def fund_wiki_review_options(current: str) -> str:
     states = {
         "approved": "Проверено",
@@ -528,3 +590,94 @@ def fund_wiki_review_options(current: str) -> str:
 def option(value: str, label: str, current: str) -> str:
     selected = " selected" if value == current else ""
     return f"<option value=\"{escape(value)}\"{selected}>{escape(label)}</option>"
+
+
+def render_application_status_form(application: Application, *, target: str) -> str:
+    return (
+        f"<form method=\"post\" action=\"{target}\">"
+        f"<label>Стадия <select name=\"status\">{application_status_options(application.status)}</select></label>"
+        f"<label>Ответственный <input name=\"owner\" value=\"{escape(application.owner, quote=True)}\" placeholder=\"Имя\"></label>"
+        f"<label>Кто подал <input name=\"submitted_by\" value=\"{escape(application.submitted_by, quote=True)}\" placeholder=\"Имя, если уже подано\"></label>"
+        "<button type=\"submit\">Сохранить стадию</button>"
+        "</form>"
+    )
+
+
+def render_application_dates_form(application: Application, *, target: str) -> str:
+    return (
+        f"<form method=\"post\" action=\"{target}\">"
+        f"<label>Дата подачи <input name=\"submitted_at\" value=\"{escape(application.submitted_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>"
+        f"<label>Срок ответа <input name=\"response_due_at\" value=\"{escape(application.response_due_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>"
+        f"<label>Срок отчета <input name=\"reporting_due_at\" value=\"{escape(application.reporting_due_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>"
+        f"<label>Проверить позже <input name=\"recheck_at\" value=\"{escape(application.recheck_at or '', quote=True)}\" placeholder=\"YYYY-MM-DD\"></label>"
+        "<button type=\"submit\">Сохранить сроки</button>"
+        "</form>"
+    )
+
+
+def render_application_note_form(application: Application, *, target: str) -> str:
+    return (
+        f"<form method=\"post\" action=\"{target}\">"
+        f"<label>Заметка по заявке<textarea name=\"notes\" rows=\"4\">{escape(application.notes)}</textarea></label>"
+        "<button type=\"submit\">Сохранить заметку</button>"
+        "</form>"
+    )
+
+
+def application_sort_key(application: Application) -> tuple[str, str]:
+    return (application.response_due_at or application.reporting_due_at or application.recheck_at or "9999-12-31", application.id)
+
+
+def render_application_blockers(application: Application) -> str:
+    today = date.today().isoformat()
+    blockers = []
+    if not application.owner:
+        blockers.append("нет ответственного")
+    if application.response_due_at and application.response_due_at < today and application.status in {"submitted_by_human", "waiting_response"}:
+        blockers.append("ответ просрочен")
+    if (
+        application.reporting_due_at
+        and application.reporting_due_at < today
+        and application.status == "reporting_needed"
+        and application.reporting_state != "prepared_by_human"
+    ):
+        blockers.append("отчет просрочен")
+    if application.recheck_at and application.status == "recheck_later":
+        blockers.append("проверить позже")
+    if not blockers:
+        return ""
+    return "<br>" + "".join(f"<span class=\"needs-info\">{escape(item)}</span><br>" for item in blockers)
+
+
+def render_activity_log(activity: Iterable[ActivityLogEntry], *, empty_text: str) -> str:
+    rows = list(activity)
+    if not rows:
+        return f"<p class=\"muted\">{escape(empty_text)}</p>"
+    return "<ul>" + "".join(f"<li>{escape(item.timestamp)}: {escape(item.action)} — {escape(item.details)}</li>" for item in rows) + "</ul>"
+
+
+def render_feedback_log(activity: Iterable[ActivityLogEntry]) -> str:
+    feedback = [item for item in activity if item.action == "operator_feedback"]
+    rows = []
+    for item in feedback:
+        status = item.status or "new"
+        rows.append(
+            "<tr>"
+            f"<td>{escape(item.timestamp)}</td>"
+            f"<td>{escape(item.details)}</td>"
+            f"<td>{escape(status)}</td>"
+            "<td>"
+            f"<form method=\"post\" action=\"/feedback/{escape(item.id)}/status\">"
+            f"<select name=\"status\">{feedback_status_options(status)}</select>"
+            "<button type=\"submit\">Сохранить</button>"
+            "</form>"
+            "</td>"
+            "</tr>"
+        )
+    table = (
+        "<p class=\"muted\">Пока нет наблюдений.</p>"
+        if not rows
+        else "<table><thead><tr><th>Дата</th><th>Наблюдение</th><th>Статус</th><th>Действие</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+    )
+    return f"<section><h2>Журнал наблюдений</h2>{table}</section>"

@@ -44,3 +44,6 @@ class Store(Protocol):
 
     def list_activity(self) -> List[ActivityLogEntry]:
         ...
+
+    def update_activity_fields(self, activity_id: str, fields: Dict[str, object]) -> ActivityLogEntry:
+        ...

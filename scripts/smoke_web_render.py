@@ -42,22 +42,38 @@ def main() -> int:
             {"submitted_at": "2026-05-04", "response_due_at": "2026-05-20", "reporting_due_at": "", "recheck_at": ""},
         )
         app.post(f"/applications/{application.id}/note", {"notes": "Подано человеком через внешнюю форму."})
+        app.post(
+            f"/applications/{application.id}/response",
+            {"status": "accepted", "response_summary": "Приняли, нужно подготовить отчет."},
+        )
+        app.post(
+            f"/applications/{application.id}/reporting",
+            {"reporting_state": "prepared_by_human", "reporting_done_at": "2026-05-25", "notes": "Отчет проверен человеком."},
+        )
         app.post("/first-run/feedback", {"feedback": "Не хватило понятной подсказки по отчетности."})
+        feedback_id = [item for item in store.list_activity() if item.action == "operator_feedback"][0].id
+        app.post(f"/feedback/{feedback_id}/status", {"status": "reviewed"})
         root_status, root_html = app.render("/")
         applications_status, applications_html = app.render("/applications")
+        application_detail_status, application_detail_html = app.render(f"/applications/{application.id}")
         first_run_status, first_run_html = app.render("/first-run")
         review_status, review_html = app.render("/review")
         wiki_status, wiki_html = app.render("/fund-wiki")
         detail_status, detail_html = app.render(f"/opportunities/{opportunity.id}")
     assert root_status == 200
     assert applications_status == 200
+    assert application_detail_status == 200
     assert first_run_status == 200
     assert review_status == 200
     assert wiki_status == 200
     assert detail_status == 200
     assert "Рабочий стол фандрайзинга" in root_html
     assert "Заявки" in applications_html
+    assert "Карточка заявки" in application_detail_html
+    assert "Приняли, нужно подготовить отчет" in application_detail_html
+    assert "Отчет подготовлен человеком" in application_detail_html
     assert "Первый прогон" in first_run_html
+    assert "Журнал наблюдений" in first_run_html
     assert "Очередь проверки" in review_html
     assert "Паспорт фонда" in wiki_html
     assert "Заявка" in detail_html

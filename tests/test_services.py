@@ -9,8 +9,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.local_json_store import LocalJsonStore
-from balance_fundraising.domain import Application, FundWikiEntry, Opportunity
-from balance_fundraising.services.applications import create_application_for_opportunity, update_application_status
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry, Opportunity
+from balance_fundraising.services.applications import (
+    build_reporting_checklist,
+    create_application_for_opportunity,
+    update_application_reporting,
+    update_application_response,
+    update_application_status,
+    update_feedback_status,
+)
 from balance_fundraising.services.checklist import build_checklist
 from balance_fundraising.services.demo import seed_demo_store
 from balance_fundraising.services.digest import build_digest
@@ -103,6 +110,9 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(application.status, "preparing")
         self.assertEqual(application.owner, "")
         self.assertEqual(application.next_action, "Подготовить заявку")
+        self.assertEqual(application.response_summary, "")
+        self.assertEqual(application.reporting_state, "not_started")
+        self.assertIsNone(application.reporting_done_at)
 
     def test_application_created_from_opportunity_and_status_logged(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,6 +149,67 @@ class ServiceTests(unittest.TestCase):
         self.assertIn("ответ просрочен", digest)
         self.assertIn("нет ответственного", digest)
         self.assertIn("отчет до 2026-05-05", digest)
+
+    def test_application_response_and_reporting_are_logged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            opportunity = Opportunity.from_url("https://example.org/app")
+            store.upsert_opportunity(opportunity)
+            application = create_application_for_opportunity(store, opportunity.id)
+            update_application_response(store, application.id, status="accepted", response_summary="Приняли, нужен отчет")
+            update_application_reporting(
+                store,
+                application.id,
+                reporting_state="prepared_by_human",
+                reporting_done_at="2026-05-10",
+                notes="Отчет проверила Анна",
+            )
+            stored = store.get_application(application.id)
+            activity = store.list_activity()
+        self.assertEqual(stored.status, "accepted")
+        self.assertEqual(stored.response_summary, "Приняли, нужен отчет")
+        self.assertEqual(stored.reporting_state, "prepared_by_human")
+        self.assertEqual(stored.reporting_done_at, "2026-05-10")
+        self.assertTrue(any(item.action == "application_response" for item in activity))
+        self.assertTrue(any(item.action == "application_reporting" for item in activity))
+
+    def test_reporting_checklist_uses_opportunity_requirements_and_missing_markers(self) -> None:
+        opportunity = Opportunity.from_url("https://example.org/reporting")
+        application = Application(id="app_1", opportunity_id=opportunity.id, status="reporting_needed")
+        checklist = build_reporting_checklist(application, opportunity)
+        self.assertIn("[НУЖНО УТОЧНИТЬ] Требования к отчету", checklist)
+        self.assertIn("[НУЖНО УТОЧНИТЬ] Срок отчета", checklist)
+        self.assertIn("[НУЖНО УТОЧНИТЬ] Ответственный", checklist)
+        opportunity.reporting_requirements = ["Финансовый отчет", "Содержательный отчет"]
+        application.reporting_due_at = "2026-05-20"
+        application.owner = "Анна"
+        checklist = build_reporting_checklist(application, opportunity)
+        self.assertIn("Финансовый отчет", checklist)
+        self.assertIn("2026-05-20", checklist)
+        self.assertIn("Анна", checklist)
+
+    def test_digest_ignores_prepared_reporting(self) -> None:
+        application = Application(
+            id="app_report",
+            opportunity_id="opp_report",
+            status="reporting_needed",
+            reporting_due_at="2026-04-12",
+            reporting_state="prepared_by_human",
+            owner="Анна",
+        )
+        digest = build_digest([], applications=[application], today=date(2026, 4, 26))
+        self.assertEqual(digest, "Срочных действий нет.")
+
+    def test_feedback_status_updates_activity_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            entry = ActivityLogEntry.today(action="operator_feedback", entity_id="first-run", details="Неясно")
+            store.add_activity(entry)
+            activity_id = store.list_activity()[0].id
+            updated = update_feedback_status(store, activity_id, "converted_to_task")
+        self.assertEqual(updated.status, "converted_to_task")
 
 
 if __name__ == "__main__":

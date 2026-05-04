@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from balance_fundraising.adapters.google_sheets_store import GoogleSheetsStore
-from balance_fundraising.domain import Application, FundWikiEntry
+from balance_fundraising.domain import ActivityLogEntry, Application, FundWikiEntry
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -50,12 +50,27 @@ class ExampleAndAdapterTests(unittest.TestCase):
         store = GoogleSheetsStore("sheet", "service.json")
         with patch.object(store, "_open", return_value=spreadsheet):
             store.init_store()
-            application = Application(id="app_1", opportunity_id="opp_1", owner="Анна")
+            application = Application(id="app_1", opportunity_id="opp_1", owner="Анна", response_summary="Приняли")
             store.upsert_application(application)
-            updated = store.update_application_fields("app_1", {"status": "waiting_response"})
+            updated = store.update_application_fields("app_1", {"status": "waiting_response", "reporting_state": "prepared_by_human"})
             applications = store.list_applications()
         self.assertEqual(updated.status, "waiting_response")
+        self.assertEqual(updated.reporting_state, "prepared_by_human")
+        self.assertEqual(applications[0].response_summary, "Приняли")
         self.assertEqual(applications[0].owner, "Анна")
+
+    def test_google_sheets_activity_update_methods(self) -> None:
+        spreadsheet = FakeSpreadsheet()
+        store = GoogleSheetsStore("sheet", "service.json")
+        with patch.object(store, "_open", return_value=spreadsheet):
+            store.init_store()
+            entry = ActivityLogEntry.today(action="operator_feedback", entity_id="first-run", details="Неясно")
+            store.add_activity(entry)
+            activity_id = store.list_activity()[0].id
+            updated = store.update_activity_fields(activity_id, {"status": "ignored"})
+            activity = store.list_activity()
+        self.assertEqual(updated.status, "ignored")
+        self.assertEqual(activity[0].status, "ignored")
 
 
 class FakeWorksheet:

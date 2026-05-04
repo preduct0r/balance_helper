@@ -99,6 +99,8 @@ Add guided flows for "Подать заявку", "Подготовить отч
 
 Phase 3 has started with the internal application pipeline: the UI now shows `/applications`, lets an operator create a "Заявка" record from an opportunity, tracks stages from "Готовим заявку" to "Ждем ответ", "Нужен отчет", and "Проверить позже", and records dates, owners, notes, and ActivityLog history. The status `submitted_by_human` means a person has already submitted the application outside the service; the system only records that fact.
 
+Phase 3 now continues as a follow-up and reporting workspace: each application has its own detail page for response summary, reporting checklist, reporting state, dates, notes, and history. The first-run screen also shows saved operator observations so confusing UX moments can be reviewed and turned into tasks without leaving the local workspace.
+
 ### UI Phase 3A: FundWiki And Readiness
 
 Make "Паспорт фонда" editable in the local web UI and show required reusable facts for applications: mission, audience, programs, start year, impact, legal details, reports, public links, and presentation. Opportunity cards should show "Готовность заявки" so the operator sees exactly what blocks human review.

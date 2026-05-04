@@ -25,6 +25,9 @@ class HarnessDocsTests(unittest.TestCase):
             "applications",
             "application-create",
             "application-status",
+            "application-show",
+            "application-dates",
+            "application-note",
         ]:
             self.assertIn(command, readme)
         for env in [
@@ -124,6 +127,10 @@ class HarnessDocsTests(unittest.TestCase):
             "мы реально подаём заявку",
             "заявку уже отправил человек",
             "нужен отчёт",
+            "ждём ответ",
+            "получили отказ",
+            "заявку приняли",
+            "готовим отчёт",
             "BALANCE_WEB_HOST",
             "BALANCE_WEB_PORT",
         ]:

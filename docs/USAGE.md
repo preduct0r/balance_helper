@@ -151,6 +151,24 @@ Move an internal application to another stage:
 PYTHONPATH=src python3 -m balance_fundraising.cli application-status <application_id> waiting_response
 ```
 
+Show one application:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli application-show <application_id>
+```
+
+Update application dates:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli application-dates <application_id> --response-due 2026-05-20 --reporting-due 2026-06-20 --recheck 2026-05-30
+```
+
+Save an internal application note:
+
+```bash
+PYTHONPATH=src python3 -m balance_fundraising.cli application-note <application_id> "Ответ ждём в кабинете платформы"
+```
+
 Run the local operator smoke workflow:
 
 ```bash
@@ -199,6 +217,7 @@ The first web UI is local-only. It shows:
 - dashboard with urgent actions and missing deadlines;
 - opportunity list;
 - application list;
+- application detail page with response, reporting, history, and follow-up dates;
 - review queue;
 - `FundWiki` / Паспорт фонда;
 - "Первый прогон" validation screen;
@@ -206,7 +225,7 @@ The first web UI is local-only. It shows:
 - checklist;
 - draft;
 - readiness block for "Подготовить заявку";
-- safe operator actions: status, review state, owner, notes, checklist done, application readiness, internal application stage, application dates, and application notes;
+- safe operator actions: status, review state, owner, notes, checklist done, application readiness, internal application stage, application dates, response summary, reporting state, application notes, and first-run observation status;
 - local heuristic analysis from pasted text or the source URL.
 
 It does not send applications, emails, reports, or partner messages.
@@ -317,6 +336,40 @@ Treat it as a task, not an error. Check the source page, update `FundWiki` or th
 5. Fill owner, next known dates, and a short note with the real next step.
 6. Move the stage to "Готово к ручной проверке" only after a person checks the source, documents, checklist, and draft.
 7. Keep using the digest and `/applications` page to avoid losing response or reporting dates.
+
+### ждём ответ, как вести follow-up?
+
+1. Open `/applications` and choose the application.
+2. Set the stage to "Ждем ответ".
+3. Fill "Срок ответа" if the platform gave one.
+4. Assign an owner.
+5. Save a note with where to check the answer.
+6. Watch `digest`: overdue response dates appear there before anything is sent or changed outside the service.
+
+### получили отказ, что записать?
+
+1. Open the application detail page.
+2. In "Ответ площадки", set the result to "Отклонено".
+3. Add a short response summary: reason, source, and whether recheck is possible.
+4. If there may be a future window, fill "Проверить позже" and set the stage to "Проверить позже".
+5. Keep the note factual; no external message is sent.
+
+### заявку приняли, что дальше?
+
+1. Open the application detail page.
+2. In "Ответ площадки", set the result to "Принято".
+3. Add response summary with conditions and where the confirmation is stored.
+4. If the platform requires a report, set the stage to "Нужен отчет" and fill "Срок отчета".
+5. Assign the person responsible for reporting.
+
+### готовим отчёт, как не потерять требования?
+
+1. Open the application detail page.
+2. Check "Отчетность": it lists reporting requirements from the opportunity and marks gaps as `[НУЖНО УТОЧНИТЬ]`.
+3. Fill the reporting due date and owner.
+4. Save a note with report source links or internal document location.
+5. Mark "Отчет подготовлен человеком" only after a person has checked the report.
+6. Prepared reports stop appearing as overdue reporting items in the digest.
 
 ### заявку уже отправил человек, что отметить?
 

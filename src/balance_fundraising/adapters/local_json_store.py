@@ -134,12 +134,29 @@ class LocalJsonStore:
 
     def add_activity(self, entry: ActivityLogEntry) -> None:
         data = self._read_initialized()
+        if not entry.id:
+            entry = ActivityLogEntry.from_dict(entry.to_dict())
         data["ActivityLog"].append(entry.to_dict())
         self._write(data)
 
     def list_activity(self) -> List[ActivityLogEntry]:
         data = self._read_initialized()
         return [ActivityLogEntry.from_dict(row) for row in data["ActivityLog"]]
+
+    def update_activity_fields(self, activity_id: str, fields: Dict[str, object]) -> ActivityLogEntry:
+        data = self._read_initialized()
+        rows = data["ActivityLog"]
+        for index, row in enumerate(rows):
+            entry = ActivityLogEntry.from_dict(row)
+            if entry.id == activity_id:
+                for key, value in fields.items():
+                    if key not in ActivityLogEntry.__dataclass_fields__:
+                        raise KeyError(f"Unknown activity field: {key}")
+                    setattr(entry, key, value)
+                rows[index] = entry.to_dict()
+                self._write(data)
+                return entry
+        raise KeyError(f"Activity not found: {activity_id}")
 
     def _read_initialized(self) -> Dict[str, Any]:
         self.init_store()
