@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 from html import escape
 from typing import Iterable, List
@@ -216,7 +217,7 @@ def render_b2b_page(
         render_activity_log(runs[-10:], empty_text="B2B-запусков пока не было."),
         "</section>",
         "<section>",
-        "<h2>B2B leads</h2>",
+        "<h2>Найденные B2B-контакты</h2>",
         render_lead_table(leads, empty_text="Пока нет B2B-контактов."),
         "</section>",
     ]
@@ -288,11 +289,11 @@ def render_event_page(
         "</form>",
         "</section>",
         "<section>",
-        "<h2>Последние event-запуски</h2>",
+        "<h2>Последние запуски поиска мероприятий</h2>",
         render_activity_log(runs[-10:], empty_text="Поисков мероприятий пока не было."),
         "</section>",
         "<section>",
-        "<h2>Event leads</h2>",
+        "<h2>Найденные мероприятия</h2>",
         render_event_lead_table(leads, empty_text="Пока нет мероприятий."),
         "</section>",
     ]
@@ -326,11 +327,11 @@ def render_blogger_page(
         "</form>",
         "</section>",
         "<section>",
-        "<h2>Последние blogger-запуски</h2>",
+        "<h2>Последние запуски поиска блогеров</h2>",
         render_activity_log(runs[-10:], empty_text="Поисков блогеров пока не было."),
         "</section>",
         "<section>",
-        "<h2>Blogger leads</h2>",
+        "<h2>Найденные блогеры и сообщества</h2>",
         render_blogger_lead_table(leads, empty_text="Пока нет блогеров или сообществ."),
         "</section>",
     ]
@@ -1501,7 +1502,48 @@ def render_activity_log(activity: Iterable[ActivityLogEntry], *, empty_text: str
     rows = list(activity)
     if not rows:
         return f"<p class=\"muted\">{escape(empty_text)}</p>"
-    return "<ul>" + "".join(f"<li>{escape(item.timestamp)}: {escape(item.action)} — {escape(item.details)}</li>" for item in rows) + "</ul>"
+    return "<ul>" + "".join(f"<li>{escape(item.timestamp)}: {escape(_activity_text(item))}</li>" for item in rows) + "</ul>"
+
+
+def _activity_text(item: ActivityLogEntry) -> str:
+    if item.action.endswith("_run"):
+        return _run_activity_text(item.details)
+    return f"{_activity_label(item.action)} — {item.details}"
+
+
+def _run_activity_text(details: str) -> str:
+    match = re.search(r"^(?P<status>\w+): queries=(?P<queries>\d+) created=(?P<created>\d+) existing=(?P<existing>\d+) limit=(?P<limit>\d+)", details)
+    if not match:
+        return details
+    status = match.group("status")
+    queries = match.group("queries")
+    created = match.group("created")
+    existing = match.group("existing")
+    limit = match.group("limit")
+    if status == "completed":
+        prefix = f"Поиск завершен: новых записей {created}, уже было в базе {existing}. Запросов: {queries}, лимит на запрос: {limit}."
+        if created == "0" and existing == "0":
+            return prefix + " Новых результатов не найдено. Попробуйте свой запрос, другой раздел или меньший набор слов."
+        if created == "0":
+            return prefix + " Все найденное уже было в базе."
+        return prefix + " Откройте найденные записи ниже и проверьте их вручную."
+    if status == "failed":
+        return f"Поиск не завершился. Запросов: {queries}, лимит на запрос: {limit}. Подробности есть в техническом логе."
+    return details
+
+
+def _activity_label(action: str) -> str:
+    labels = {
+        "discover": "Найдена возможность",
+        "discover_error": "Ошибка поиска",
+        "b2b_discover": "Найден B2B-контакт",
+        "b2b_discover_error": "Ошибка B2B-поиска",
+        "event_discover": "Найдено мероприятие",
+        "event_discover_error": "Ошибка поиска мероприятий",
+        "blogger_discover": "Найден блогер или сообщество",
+        "blogger_discover_error": "Ошибка поиска блогеров",
+    }
+    return labels.get(action, action)
 
 
 def render_feedback_log(activity: Iterable[ActivityLogEntry]) -> str:

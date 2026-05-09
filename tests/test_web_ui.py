@@ -301,6 +301,7 @@ class WebUiTests(unittest.TestCase):
             updated = store.get_lead(lead.id)
         self.assertEqual(status, 200)
         self.assertIn("Мероприятия", html)
+        self.assertIn("Найденные мероприятия", html)
         self.assertIn("Нужны Yandex-настройки", html)
         self.assertEqual(post_status, 303)
         self.assertEqual(location, "/events")
@@ -337,6 +338,7 @@ class WebUiTests(unittest.TestCase):
             updated = store.get_lead(lead.id)
         self.assertEqual(status, 200)
         self.assertIn("Блогеры", html)
+        self.assertIn("Найденные блогеры и сообщества", html)
         self.assertIn("Нужны Yandex-настройки", html)
         self.assertEqual(post_status, 303)
         self.assertEqual(location, "/bloggers")
@@ -351,6 +353,23 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("Черновик предложения коллаборации", detail_html)
         self.assertIn("ничего не отправляет", detail_html)
         self.assertIn("Новый блог", review_html)
+
+    def test_blogger_zero_result_run_is_operator_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            store.add_activity(
+                ActivityLogEntry.today(
+                    action="blogger_discover_run",
+                    entity_id="blogger",
+                    details="completed: queries=6 created=0 existing=0 limit=5",
+                )
+            )
+            html = render_bloggers(store)
+        self.assertIn("Поиск завершен: новых записей 0", html)
+        self.assertIn("Новых результатов не найдено", html)
+        self.assertIn("Попробуйте свой запрос", html)
+        self.assertNotIn("completed: queries=6", html)
 
     def test_donor_campaign_workspace_create_update_and_render_draft(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -663,7 +682,7 @@ class WebUiTests(unittest.TestCase):
             html = render_radar(store)
         self.assertEqual(status, 303)
         self.assertEqual(location, "/radar")
-        self.assertIn("failed", html)
+        self.assertIn("Поиск не завершился", html)
         self.assertNotIn("SECRET", html)
 
     def test_radar_history_hides_per_query_technical_errors(self) -> None:
@@ -681,11 +700,12 @@ class WebUiTests(unittest.TestCase):
                 ActivityLogEntry.today(
                     action="discover_run",
                     entity_id="radar",
-                    details="failed: queries=1 created=0 existing=0 limit=5",
+                    details="completed: queries=1 created=0 existing=0 limit=5",
                 )
             )
             html = render_radar(store)
-        self.assertIn("failed: queries=1", html)
+        self.assertIn("Поиск завершен: новых записей 0", html)
+        self.assertIn("Новых результатов не найдено", html)
         self.assertNotIn("Invalid URL", html)
 
 
