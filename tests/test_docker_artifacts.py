@@ -25,6 +25,12 @@ class DockerArtifactsTests(unittest.TestCase):
         self.assertIn("BALANCE_LOG_FILE=/app/logs/app.jsonl", compose)
         self.assertIn("BALANCE_STORE_PATH=/app/data/local_store.json", compose)
         self.assertIn("8080:8080", compose)
+        self.assertIn("YANDEX_API_KEY=${YANDEX_API_KEY:-}", compose)
+        self.assertIn("YANDEX_FOLDER_ID=${YANDEX_FOLDER_ID:-}", compose)
+
+    def test_gitignore_keeps_env_out_of_commits(self) -> None:
+        gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn(".env", gitignore)
 
     def test_dockerignore_keeps_runtime_state_out_of_image(self) -> None:
         dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")

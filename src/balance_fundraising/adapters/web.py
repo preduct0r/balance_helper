@@ -79,6 +79,7 @@ from balance_fundraising.services.offers import (
 from balance_fundraising.services.operator_dashboard import build_operator_work_items, section_counts
 from balance_fundraising.services.readiness import build_readiness
 from balance_fundraising.services.structured_logging import build_logging_config, log_event
+from balance_fundraising.yandex_api import load_env_file
 
 
 class WebApp:
@@ -91,6 +92,7 @@ class WebApp:
         event_search_client_factory=None,
         blogger_search_client_factory=None,
     ) -> None:
+        load_env_file()
         self.store = store
         self.search_client_factory = search_client_factory or YandexSearchClient
         self.b2b_search_client_factory = b2b_search_client_factory or YandexSearchClient

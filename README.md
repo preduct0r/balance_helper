@@ -59,7 +59,7 @@ The compose setup mounts host folders into the container:
 
 Use `docker compose stop` to stop without removing the container, or `docker compose down` to remove the container. In both cases, `./logs/app.jsonl` and `./data/local_store.json` remain on the host. Do not commit `.env`, `data/`, or `logs/`.
 
-The default Compose service is local-first and does not pass Yandex or Telegram secrets into the container. Add real external credentials only for an intentional manual integration smoke.
+Compose reads Yandex values from the root `.env` file and passes only `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `YANDEX_LLM_MODEL_URI`, and `YANDEX_SEARCH_ENDPOINT` into the container. Restart Docker Compose after editing `.env` so the Radar screen sees the updated search credentials. Telegram and Google credentials are still not passed by default.
 
 ## Environment Variables
 

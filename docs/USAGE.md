@@ -530,7 +530,7 @@ tail -n 20 logs/app.jsonl
 
 `docker compose down -v` is not needed for this setup and should be avoided unless you intentionally want to remove Docker-managed volumes in another configuration. The current setup uses host folders, so `logs/app.jsonl` remains visible on the machine after normal stop/down.
 
-The default Compose file is local-first and does not pass Yandex or Telegram secrets into the container. Keep real external credentials outside Docker until you intentionally add them for a manual integration smoke. Do not commit `.env`, `data/`, or `logs/`.
+Compose reads the root `.env` file and passes only the Yandex search settings into the container: `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, optional `YANDEX_LLM_MODEL_URI`, and optional `YANDEX_SEARCH_ENDPOINT`. After editing `.env`, restart Docker Compose with `docker compose up --build` or `docker compose restart` so the Radar screen sees the credentials. Telegram and Google credentials are still not passed by default. Do not commit `.env`, `data/`, or `logs/`.
 
 ## 9. Operator Recipes
 

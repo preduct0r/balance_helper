@@ -8,7 +8,6 @@
 - Implemented domain models, local JSON store, Google Sheets adapter, Yandex LLM helpers, Yandex Search client, text/JSON extraction, discovery/analysis/checklist/draft/digest services, CLI, and Telegram command handlers.
 - Verified with `PYTHONPATH=src python3 -m unittest discover -s tests -v` and `PYTHONPATH=src python3 scripts/dev_check.py`; both pass with 18 tests.
 - Next safe step: install dependencies in a virtualenv and run a real smoke test against Yandex credentials or a real Google Sheet.
-
 ## 2026-05-04
 
 - Added `docs/ROADMAP.md` so future agents understand the original fundraising problem and the broader multi-agent roadmap beyond the MVP.
@@ -34,3 +33,7 @@
 - Added Cross-Agent Operator Dashboard v1: reusable operator work items across opportunities, applications, leads, service offers, and donor campaigns; unified `/` dashboard groups urgent work, missing owners, review items, gaps, risks, and direction counts; `/review` now links records back to their module cards; and CLI `digest` includes all implemented modules. `cross-agent-operator-dashboard` is marked passing after `PYTHONPATH=src python3 -m unittest discover -s tests -v`, `PYTHONPATH=src python3 scripts/smoke_web_render.py`, `PYTHONPATH=src python3 scripts/dev_check.py`, and `git diff --check`; next safe roadmap step is `final-validation-and-hardening`.
 - Added FastAPI + Structured Logging hardening: the `web` command now runs the existing server-rendered operator UI through FastAPI/uvicorn, technical JSONL logs go to `logs/app.jsonl` by default, request/error logging includes request ids and sanitized stack traces, and `doctor` reports FastAPI/uvicorn/log status. `fastapi-structured-logging-hardening` is marked passing after `PYTHONPATH=src python3 -m unittest discover -s tests -v`, `PYTHONPATH=src python3 scripts/smoke_web_render.py`, `PYTHONPATH=src python3 scripts/dev_check.py`, and `git diff --check`; next safe step remains real-world validation and hardening.
 - Added Docker persistent runtime: `Dockerfile`, `docker-compose.yml`, and `.dockerignore` run the FastAPI web command with `./data:/app/data` and `./logs:/app/logs`, so local store data and JSONL logs survive container stops. `docker-persistent-runtime` is marked passing after `PYTHONPATH=src python3 -m unittest discover -s tests -v`, `PYTHONPATH=src python3 scripts/dev_check.py`, and `git diff --check`; next safe step remains real-world validation and hardening.
+
+## 2026-05-09
+
+- Fixed the Radar credential path for local/Docker UI usage: `WebApp` loads `.env`, Docker Compose forwards only Yandex search variables into the container, and `.env` is explicitly ignored so credentials do not enter commits.
