@@ -16,7 +16,7 @@ class YandexLLMClient:
         load_env_file()
         self.api_key = api_key or require_env("YANDEX_API_KEY")
         self.folder_id = folder_id or require_env("YANDEX_FOLDER_ID")
-        self.model = model or os.getenv("YANDEX_LLM_MODEL_URI", DEFAULT_YANDEX_LLM_MODEL)
+        self.model = model or os.getenv("YANDEX_LLM_MODEL_URI") or DEFAULT_YANDEX_LLM_MODEL
 
     def complete(self, *, system_prompt: str, user_prompt: str, temperature: float = 0.2, max_tokens: int = 2048) -> str:
         try:
@@ -44,4 +44,3 @@ class YandexLLMClient:
         if not response.ok:
             raise RuntimeError(f"Yandex LLM error {response.status_code}: {response.text}")
         return extract_yandex_completion_text(response.json())
-

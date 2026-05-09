@@ -38,7 +38,7 @@ class YandexSearchClient:
         load_env_file()
         self.api_key = api_key or require_env("YANDEX_API_KEY")
         self.folder_id = folder_id or require_env("YANDEX_FOLDER_ID")
-        self.endpoint = endpoint or os.getenv("YANDEX_SEARCH_ENDPOINT", YANDEX_SEARCH_URL)
+        self.endpoint = endpoint or os.getenv("YANDEX_SEARCH_ENDPOINT") or YANDEX_SEARCH_URL
 
     def search(self, query: str, *, page: int = 0, groups_on_page: int = 10) -> List[SearchResult]:
         try:
@@ -118,4 +118,3 @@ def _texts(root: ET.Element, tag: str) -> List[str]:
 
 def _clean(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
-

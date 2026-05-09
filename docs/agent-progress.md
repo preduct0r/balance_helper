@@ -37,3 +37,4 @@
 ## 2026-05-09
 
 - Fixed the Radar credential path for local/Docker UI usage: `WebApp` loads `.env`, Docker Compose forwards only Yandex search variables into the container, and `.env` is explicitly ignored so credentials do not enter commits.
+- Fixed an empty optional Yandex endpoint/model regression from Docker Compose: clients now fall back to defaults when optional env vars are empty, and Radar history hides per-query technical errors from the operator view.

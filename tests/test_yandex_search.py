@@ -3,10 +3,12 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from balance_fundraising.clients.yandex_search import build_yandex_search_request, parse_yandex_search_raw_data
+from balance_fundraising.app_defaults import YANDEX_SEARCH_URL
+from balance_fundraising.clients.yandex_search import YandexSearchClient, build_yandex_search_request, parse_yandex_search_raw_data
 
 
 class YandexSearchTests(unittest.TestCase):
@@ -38,7 +40,11 @@ class YandexSearchTests(unittest.TestCase):
         self.assertEqual(results[0].url, "https://example.org/apply")
         self.assertIn("Дедлайн", results[0].snippet)
 
+    def test_client_uses_default_endpoint_when_env_is_empty(self) -> None:
+        with patch.dict("os.environ", {"YANDEX_SEARCH_ENDPOINT": ""}):
+            client = YandexSearchClient(api_key="key", folder_id="folder")
+        self.assertEqual(client.endpoint, YANDEX_SEARCH_URL)
+
 
 if __name__ == "__main__":
     unittest.main()
-

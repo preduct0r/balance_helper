@@ -666,6 +666,28 @@ class WebUiTests(unittest.TestCase):
         self.assertIn("failed", html)
         self.assertNotIn("SECRET", html)
 
+    def test_radar_history_hides_per_query_technical_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalJsonStore(Path(tmp) / "store.json")
+            store.init_store()
+            store.add_activity(
+                ActivityLogEntry.today(
+                    action="discover_error",
+                    entity_id="radar",
+                    details='прием заявок НКО платформа: Invalid URL "": No scheme supplied.',
+                )
+            )
+            store.add_activity(
+                ActivityLogEntry.today(
+                    action="discover_run",
+                    entity_id="radar",
+                    details="failed: queries=1 created=0 existing=0 limit=5",
+                )
+            )
+            html = render_radar(store)
+        self.assertIn("failed: queries=1", html)
+        self.assertNotIn("Invalid URL", html)
+
 
 class FakeRadarSearchClient:
     def search(self, query: str, *, groups_on_page: int = 10):

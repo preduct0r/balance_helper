@@ -198,7 +198,7 @@ def render_b2b_page(
         if yandex_configured
         else "<div class=\"callout\">Нужны Yandex-настройки для реального B2B-поиска: YANDEX_API_KEY и YANDEX_FOLDER_ID. Тесты и демо не вызывают внешний поиск.</div>"
     )
-    runs = [item for item in activity if item.action in {"b2b_discover_run", "b2b_discover_error"}]
+    runs = [item for item in activity if item.action == "b2b_discover_run"]
     body = [
         "<section>",
         "<h2>B2B партнёры</h2>",
@@ -236,7 +236,7 @@ def render_radar_page(
         if yandex_configured
         else "<div class=\"callout\">Нужны Yandex-настройки для реального поиска: YANDEX_API_KEY и YANDEX_FOLDER_ID. Тесты и демо не вызывают внешний поиск.</div>"
     )
-    runs = [item for item in activity if item.action in {"discover_run", "discover_error"}]
+    runs = [item for item in activity if item.action == "discover_run"]
     body = [
         "<section>",
         "<h2>Радар возможностей</h2>",
@@ -274,7 +274,7 @@ def render_event_page(
         if yandex_configured
         else "<div class=\"callout\">Нужны Yandex-настройки для реального поиска мероприятий: YANDEX_API_KEY и YANDEX_FOLDER_ID. Тесты и демо не вызывают внешний поиск.</div>"
     )
-    runs = [item for item in activity if item.action in {"event_discover_run", "event_discover_error"}]
+    runs = [item for item in activity if item.action == "event_discover_run"]
     body = [
         "<section>",
         "<h2>Мероприятия и мерч</h2>",
@@ -312,7 +312,7 @@ def render_blogger_page(
         if yandex_configured
         else "<div class=\"callout\">Нужны Yandex-настройки для реального поиска блогеров: YANDEX_API_KEY и YANDEX_FOLDER_ID. Тесты и демо не вызывают внешний поиск.</div>"
     )
-    runs = [item for item in activity if item.action in {"blogger_discover_run", "blogger_discover_error"}]
+    runs = [item for item in activity if item.action == "blogger_discover_run"]
     body = [
         "<section>",
         "<h2>Блогеры и амбассадоры</h2>",
