@@ -39,3 +39,4 @@
 - Fixed the Radar credential path for local/Docker UI usage: `WebApp` loads `.env`, Docker Compose forwards only Yandex search variables into the container, and `.env` is explicitly ignored so credentials do not enter commits.
 - Fixed an empty optional Yandex endpoint/model regression from Docker Compose: clients now fall back to defaults when optional env vars are empty, and Radar history hides per-query technical errors from the operator view.
 - Made zero-result radar runs operator-readable: search history now explains when no new records were found and suggests trying a custom query, another section, or fewer words instead of showing raw `completed: queries=...` text.
+- Fixed the root cause of empty Yandex search results: Search API `rawData` is base64-encoded XML, so the parser now decodes it before extracting result URLs and snippets.

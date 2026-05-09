@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -65,9 +67,21 @@ class YandexSearchClient:
 def parse_yandex_search_raw_data(raw_data: str) -> List[SearchResult]:
     if not raw_data.strip():
         return []
+    raw_data = _decode_raw_data_if_needed(raw_data)
     if raw_data.lstrip().startswith("<"):
         return _parse_xml_results(raw_data)
     return _parse_htmlish_results(raw_data)
+
+
+def _decode_raw_data_if_needed(raw_data: str) -> str:
+    stripped = raw_data.strip()
+    if stripped.startswith("<"):
+        return raw_data
+    try:
+        decoded = base64.b64decode(stripped, validate=True).decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError):
+        return raw_data
+    return decoded if decoded.lstrip().startswith("<") else raw_data
 
 
 def _parse_xml_results(raw_data: str) -> List[SearchResult]:

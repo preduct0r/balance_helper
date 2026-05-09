@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import sys
 import unittest
 from pathlib import Path
@@ -39,6 +40,30 @@ class YandexSearchTests(unittest.TestCase):
         results = parse_yandex_search_raw_data(raw)
         self.assertEqual(results[0].url, "https://example.org/apply")
         self.assertIn("Дедлайн", results[0].snippet)
+
+    def test_parse_base64_encoded_xml_results(self) -> None:
+        raw_xml = """
+        <yandexsearch>
+          <response>
+            <results>
+              <grouping>
+                <group>
+                  <doc>
+                    <url>https://example.org/blog</url>
+                    <title>Психологический блог</title>
+                    <passages><passage>Блог о ментальном здоровье</passage></passages>
+                  </doc>
+                </group>
+              </grouping>
+            </results>
+          </response>
+        </yandexsearch>
+        """
+        raw_data = base64.b64encode(raw_xml.encode("utf-8")).decode("ascii")
+        results = parse_yandex_search_raw_data(raw_data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].url, "https://example.org/blog")
+        self.assertIn("ментальном здоровье", results[0].snippet)
 
     def test_client_uses_default_endpoint_when_env_is_empty(self) -> None:
         with patch.dict("os.environ", {"YANDEX_SEARCH_ENDPOINT": ""}):
